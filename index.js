@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const loginRoute = require("./Routes/Auth/login");
 const signUpRoute = require("./Routes/Auth/signUp");
-
+const file = require("./Routes/FileHandler/fileHandle");
 
 // Create Express app
 const app = express();
@@ -36,6 +36,7 @@ db.on('error', (err) => {
 //Routes
 app.use("/login" , loginRoute);
 app.use("/signup" , signUpRoute);
+app.use("/file" , file);
 app.get('/', (req, res) => {
   res.send('Hello, Express and MongoDB!');
 });
