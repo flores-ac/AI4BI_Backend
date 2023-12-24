@@ -69,5 +69,21 @@ router.get("/uploadedFiles/:email" , (req , res )=>{
 
 
 
+router.delete("/uploadedFiles/:fileName/:email" , (req , res)=>{
+    const fileName = req.params.fileName;
+    const email = req.params.email;
+    const savedPath = path.join(__dirname, '../../uploads' + `/${email}` , fileName);
+    fs.unlink(savedPath , (err)=>{
+      if(err){
+        res.status(500).json({"msg" : "Error in Deleting file"})
+      }else{
+        res.status(200).json({"msg" : "File deleted Successfully"})
+      }
+    })
+
+
+})
+
+
 // Export the router
 module.exports = router;
