@@ -5,6 +5,9 @@ const cors = require('cors');
 const loginRoute = require("./Routes/Auth/login");
 const signUpRoute = require("./Routes/Auth/signUp");
 const file = require("./Routes/FileHandler/fileHandle");
+const EmbeddingStorage = require("./Routes/FileHandler/Embedding");
+const langchainRetrival = require("./Routes/Chat/LangchainRetrival");
+const chat = require("./Routes/Chat/Chat")
 
 // Create Express app
 const app = express();
@@ -37,6 +40,7 @@ db.on('error', (err) => {
 app.use("/login" , loginRoute);
 app.use("/signup" , signUpRoute);
 app.use("/file" , file);
+app.use("/chat" , chat)
 app.get('/', (req, res) => {
   res.send('Hello, Express and MongoDB!');
 });

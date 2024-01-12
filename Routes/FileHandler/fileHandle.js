@@ -3,6 +3,7 @@ const express = require('express');
 const fs = require("fs");
 const multer = require('multer');
 const path = require('path');
+const EmbeddingStorage = require("./Embedding.js");
 
 const router = express.Router();
 
@@ -25,21 +26,31 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-router.post("/uploadFiles/:email" , upload.single('file') , (req , res)=>{
+router.post("/uploadFiles/:email" , upload.single('file') , async(req , res)=>{
     const uploadedFile = req.file;
-    const email = "salehmalik121@gmail.com"
+    const email = req.params.email;
   if (!uploadedFile) {
     return res.status(400).send('No file uploaded.');
   }
 
   // Read the content of the file
-  const fileContent = fs.readFileSync(uploadedFile.path);
+  const fileContent = await fs.promises.readFile(uploadedFile.path);
 
   // Specify the path where you want to save the file
   const savePath = path.join(__dirname, '../../uploads' + `/${email}` , uploadedFile.filename);
 
   // Save the file to the specified path
-  fs.writeFileSync(savePath, fileContent);
+  await fs.promises.writeFile(savePath, fileContent);
+  console.log(uploadedFile.filename.split("."))
+  if(uploadedFile.filename.split(".")[1] === "pdf"){
+    console.log("PDF Detected")
+    EmbeddingStorage(uploadedFile.filename , email);
+  }else{
+    console.log("NO PDF DETECTED");
+  }
+  // Create Embeddings and store from uploaded File
+  
+
 
   // Respond with a success message
   res.send('File uploaded and saved successfully.');

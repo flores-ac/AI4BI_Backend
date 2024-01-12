@@ -1,0 +1,81 @@
+require('dotenv').config();
+const {PDFLoader} = require("langchain/document_loaders/fs/pdf");
+const path = require('path');
+const { OpenAIEmbeddings } =  require("@langchain/openai");
+const {Pinecone}  = require("@pinecone-database/pinecone")
+const {PineconeStore} = require("langchain/vectorstores/pinecone")
+const {RecursiveCharacterTextSplitter } = require("langchain/text_splitter")
+const {Document} = require("langchain/document");
+const {MultiQueryRetriever } = require("langchain/retrievers/multi_query")
+const {ChatOpenAI} = require("@langchain/openai")
+
+const EmbeddingStorage = async (fileName , userEmail) => {
+
+    // Generating path to get file name:
+    const savePath = path.join(__dirname, '../../uploads' + `/${userEmail}` , fileName);
+    const loader = new PDFLoader(savePath , {
+        splitPages: false,
+      });
+
+    const docs = await loader.load();
+
+
+    // transform
+
+
+    const splitter = new RecursiveCharacterTextSplitter({
+        chunkSize: 1000,
+        chunkOverlap: 1,
+      })
+      const docOutput = await splitter.splitDocuments([
+        new Document({ pageContent: docs[0].pageContent }),
+      ]);
+
+
+    // embeddings
+    // const embeddings = new OpenAIEmbeddings({openAIApiKey : "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"});
+
+    // const documentRes = await embeddings.embedDocuments([docs[0].pageContent]);
+    
+    // store embeddings in vector database 
+    const pinecone = new Pinecone({
+        apiKey: process.env.PINECONE_API_KEY,
+        environment: process.env.PINECONE_ENV
+    });
+
+    const pineconeIndex = pinecone.Index(process.env.PINECONE_INDEX);
+
+    await PineconeStore.fromDocuments(docOutput, new OpenAIEmbeddings(), {
+        pineconeIndex,
+        maxConcurrency: 5, // Maximum number of batch requests to allow at once. Each batch is 1000 vectors.
+      });
+
+
+      //Vector Search
+    // const vectorStore = await PineconeStore.fromExistingIndex(
+    //     new OpenAIEmbeddings(),
+    //     { pineconeIndex }
+    //   );
+    // const results = await vectorStore.similaritySearch("total registers", 1);
+    //   console.log(results);
+
+
+      // MultiQuery Retiver 
+
+      // const model = new ChatOpenAI({
+      //   temperature: 0.9,
+      // });
+
+      // const retriever = MultiQueryRetriever.fromLLM({
+      //   llm: model,
+      //   retriever: vectorStore.asRetriever(),
+      //   verbose: true,
+      // });
+      // const query = "what is task of each register in 8086?";
+      //   const retrievedDocs = await retriever.getRelevantDocuments(query);
+      //   console.log(retrievedDocs);
+
+}
+
+
+module.exports =  EmbeddingStorage;
