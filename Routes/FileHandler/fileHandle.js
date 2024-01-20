@@ -42,7 +42,7 @@ router.post("/uploadFiles/:email" , upload.single('file') , async(req , res)=>{
   // Save the file to the specified path
   await fs.promises.writeFile(savePath, fileContent);
   console.log(uploadedFile.filename.split("."))
-  if(uploadedFile.filename.split(".")[1] === "pdf"){
+  if(uploadedFile.filename.split(".")[1] === "pdf" || uploadedFile.filename.split(".")[1] === "csv" ){
     console.log("PDF Detected")
     EmbeddingStorage(uploadedFile.filename , email);
   }else{

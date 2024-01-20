@@ -8,32 +8,46 @@ const {RecursiveCharacterTextSplitter } = require("langchain/text_splitter")
 const {Document} = require("langchain/document");
 const {MultiQueryRetriever } = require("langchain/retrievers/multi_query")
 const {ChatOpenAI} = require("@langchain/openai")
+const { CSVLoader } = require("langchain/document_loaders/fs/csv");
 
 const EmbeddingStorage = async (fileName , userEmail) => {
 
     // Generating path to get file name:
     const savePath = path.join(__dirname, '../../uploads' + `/${userEmail}` , fileName);
+
+    let docs = [];
+    let docOutput = [];
+    
+    if(fileName.split(".")[1] === "csv"){
+      const loader = new CSVLoader(savePath);
+      const _docs = await loader.load();
+      docOutput = _docs
+    }else{
     const loader = new PDFLoader(savePath , {
         splitPages: false,
       });
 
-    const docs = await loader.load();
-
+    const _docs = await loader.load();
+    docs = _docs
+    }
 
     // transform
 
-
+    if(fileName.split(".")[1] === "pdf"){
     const splitter = new RecursiveCharacterTextSplitter({
         chunkSize: 1000,
         chunkOverlap: 1,
       })
-      const docOutput = await splitter.splitDocuments([
+       docOutput = await splitter.splitDocuments([
         new Document({ pageContent: docs[0].pageContent }),
       ]);
 
-
+    docOutput.forEach((element)=>{
+      element.pageContent = "File Name: " + fileName + "\n" + element.pageContent
+    })
+  }
+    console.log(docOutput);
     // embeddings
-    // const embeddings = new OpenAIEmbeddings({openAIApiKey : "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"});
 
     // const documentRes = await embeddings.embedDocuments([docs[0].pageContent]);
     
@@ -46,6 +60,7 @@ const EmbeddingStorage = async (fileName , userEmail) => {
     const pineconeIndex = pinecone.Index(process.env.PINECONE_INDEX);
 
     await PineconeStore.fromDocuments(docOutput, new OpenAIEmbeddings(), {
+
         pineconeIndex,
         maxConcurrency: 5, // Maximum number of batch requests to allow at once. Each batch is 1000 vectors.
       });
