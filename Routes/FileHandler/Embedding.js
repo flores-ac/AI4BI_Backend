@@ -9,6 +9,9 @@ const {Document} = require("langchain/document");
 const {MultiQueryRetriever } = require("langchain/retrievers/multi_query")
 const {ChatOpenAI} = require("@langchain/openai")
 const { CSVLoader } = require("langchain/document_loaders/fs/csv");
+const CSVMongooseModal = require("../../Schema/csvDataModal");
+
+
 
 const EmbeddingStorage = async (fileName , userEmail) => {
 
@@ -21,7 +24,8 @@ const EmbeddingStorage = async (fileName , userEmail) => {
     if(fileName.split(".")[1] === "csv"){
       const loader = new CSVLoader(savePath);
       const _docs = await loader.load();
-      docOutput = _docs
+      await CSVMongooseModal.create({"email" : userEmail , "fileName" : fileName , "dataInFile" : _docs});
+      return;
     }else{
     const loader = new PDFLoader(savePath , {
         splitPages: false,
@@ -46,7 +50,6 @@ const EmbeddingStorage = async (fileName , userEmail) => {
       element.pageContent = "File Name: " + fileName + "\n" + element.pageContent
     })
   }
-    console.log(docOutput);
     // embeddings
 
     // const documentRes = await embeddings.embedDocuments([docs[0].pageContent]);

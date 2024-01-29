@@ -34,14 +34,22 @@ router.get("/createChat/:email", async (req, res, next) => {
 router.post("/prompt/:chatId" , bodyParser.json() , async(req , res , next)=>{
     const chatId = req.params.chatId;
     const body = req.body;
-    const message = body.prompt;
-    console.log("flag 1")
+    let message = body.prompt;
+
+
+
+
+      console.log("flag 1")
     await chatModel.findOneAndUpdate({_id : chatId} , {$push: {chatHistory : {"message" : message , "responseFrom" : "User"} }})
-    console.log("flag 2")
-    const result = await LangchainRetrival(1 , 1 , message);
+    const result = await LangchainRetrival(1 , chatId , message);
     await chatModel.findOneAndUpdate({_id : chatId} , {$push: {chatHistory : {"message" : result , "responseFrom" : "OpenAI"} }}) 
     console.log("flag 3")
     res.status(200).json({"message" : result , "responseFrom" : "OpenAI"});
+
+  
+
+
+
 
     
 
