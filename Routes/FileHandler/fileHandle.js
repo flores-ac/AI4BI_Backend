@@ -4,6 +4,8 @@ const fs = require("fs");
 const multer = require('multer');
 const path = require('path');
 const EmbeddingStorage = require("./Embedding.js");
+const csvDataModal = require("../../Schema/csvDataModal.js")
+
 
 const router = express.Router();
 
@@ -76,6 +78,20 @@ router.get("/uploadedFiles/:email" , (req , res )=>{
             })
         }
     })
+})
+
+
+router.get("/uploadedData/:fileName" , async (req , res)=>{
+
+  const fileName = req.params.fileName;
+  try{
+    const fileData = await csvDataModal.findOne({"fileName" : fileName});
+    res.status(200).json(fileData);
+  }catch(error){
+    res.status(500).json(error);
+  }
+
+
 })
 
 

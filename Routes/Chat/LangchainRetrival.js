@@ -104,6 +104,11 @@ if(Question.split(".csv:").length > 1 || Question.split("analyze-").length > 1 )
   first array is column names and then next arrays have data entry corresponding to first array of column names 
   \n
   ${cleanedData.toString()}
+
+  !important Analyze Entire Data entry provided dont leave any of that, Also Keep record of number of rows analyzed in numerical form for future refrece 
+
+  Answer the question asked on bases of above analysis
+
   `
   console.log(cleanedData);
 
@@ -140,9 +145,10 @@ if(Question.split(".csv:").length > 1 || Question.split("analyze-").length > 1 )
   {chat_history}
   -------End of Chat History------
   
-  Use the following pieces of context to answer the question at the end.
+  Use the following pieces of context to answer the question at the end if and only if question is related to context other wise refer to chat history.
   If you don't know the answer, just say that you don't know, don't try to make up an answer. 
   If asked question is not relevant to context provided refer back to chat-history provided at top.
+  Also if how much data is analyzed is asked go through  messages history as it has numerical value which tells how much is data and data was there and donot tell there was no data available as it might not be in history but previous system template had.
   chat-history might have related text if nothing is related then just say that you do not know. 
   
 ----------------
