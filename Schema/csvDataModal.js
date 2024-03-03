@@ -8,7 +8,6 @@ const csvDataSchema = new mongoose.Schema({
   },
   fileName: {
     type: String,
-    unique: true,
   },
   dataInFile: {
     type: Array,

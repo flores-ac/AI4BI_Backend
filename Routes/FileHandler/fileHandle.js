@@ -59,26 +59,48 @@ router.post("/uploadFiles/:email" , upload.single('file') , async(req , res)=>{
 })
 
 
-router.get("/uploadedFiles/:email" , (req , res )=>{
-    const email = req.params.email;
-    const currentDir = __dirname;
-    const storageSegment =  path.join(__dirname, '../../uploads' + `/${email}`);
-    console.log(storageSegment);
-    fs.readdir(storageSegment , (err , files)=>{
-        console.log(files)
-        if(files == undefined ){
-            res.status(200).json({
-                "msg" : "error",
-                "status" : "No File Uploaded"
-            })
-        }else{
-            res.status(200).json({
-                "status" : "File Found",
-                "filesName" : files
-            })
-        }
-    })
-})
+router.get("/uploadedFiles/:email", async (req, res) => {
+  const email = req.params.email;
+  const storageSegment = path.join(__dirname, '../../uploads', email);
+  
+  try {
+      const csvFiles = await csvDataModal.find({}).select("fileName");
+      const csvFileNames = csvFiles.map(element => element.fileName);
+      
+      fs.readdir(storageSegment, (err, files) => {
+          if (err) {
+              console.error(err);
+              res.status(500).json({
+                  "msg": "error",
+                  "status": "Internal Server Error"
+              });
+              return;
+          }
+
+          files = files.concat(csvFileNames);
+          console.log(csvFileNames);
+          console.log(files);
+
+          if (files.length === 0) {
+              res.status(200).json({
+                  "msg": "error",
+                  "status": "No File Uploaded"
+              });
+          } else {
+              res.status(200).json({
+                  "status": "File Found",
+                  "filesName": files
+              });
+          }
+      });
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({
+          "msg": "error",
+          "status": "Internal Server Error"
+      });
+  }
+});
 
 
 router.get("/uploadedData/:fileName" , async (req , res)=>{
@@ -100,13 +122,24 @@ router.delete("/uploadedFiles/:fileName/:email" , (req , res)=>{
     const fileName = req.params.fileName;
     const email = req.params.email;
     const savedPath = path.join(__dirname, '../../uploads' + `/${email}` , fileName);
-    fs.unlink(savedPath , (err)=>{
-      if(err){
-        res.status(500).json({"msg" : "Error in Deleting file"})
-      }else{
+
+
+    if(fileName.split(".")[1] === "csv"){
+      csvDataModal.deleteMany({"fileName" : fileName}).then(()=>{
         res.status(200).json({"msg" : "File deleted Successfully"})
-      }
-    })
+      }).catch(err=>{
+        res.status(500).json({"msg" : "Error in Deleting file"});
+      })
+    }else{
+      fs.unlink(savedPath , (err)=>{
+        if(err){
+          res.status(500).json({"msg" : "Error in Deleting file"});
+        }else{
+          res.status(200).json({"msg" : "File deleted Successfully"})
+        }
+      })
+    }
+    
 
 
 })

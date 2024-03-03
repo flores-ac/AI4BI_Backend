@@ -10,6 +10,7 @@ const {MultiQueryRetriever } = require("langchain/retrievers/multi_query")
 const {ChatOpenAI} = require("@langchain/openai")
 const { CSVLoader } = require("langchain/document_loaders/fs/csv");
 const CSVMongooseModal = require("../../Schema/csvDataModal");
+const fs = require("fs");
 
 
 
@@ -25,6 +26,10 @@ const EmbeddingStorage = async (fileName , userEmail) => {
       const loader = new CSVLoader(savePath);
       const _docs = await loader.load();
       await CSVMongooseModal.create({"email" : userEmail , "fileName" : fileName , "dataInFile" : _docs});
+      const savedPath = path.join(__dirname, '../../uploads' + `/${userEmail}` , fileName);
+    fs.unlink(savedPath , (err)=>{
+      console.log("CSV has been removed")
+    })
       return;
     }else{
     const loader = new PDFLoader(savePath , {
