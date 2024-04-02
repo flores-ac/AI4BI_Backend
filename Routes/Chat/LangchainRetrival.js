@@ -18,7 +18,8 @@ const chatModel = require("../../Schema/chatModel");
 const { HumanMessage, AIMessage } = require("@langchain/core/messages");
 const { BufferMemory } = require("langchain/memory");
 const CSVMongooseModal = require("../../Schema/csvDataModal");
-
+const { ChatAnthropic } = require("@langchain/anthropic");
+const  { PromptTemplate } = require("@langchain/core/prompts");
 
 
 
@@ -63,6 +64,7 @@ const langchainRetrival = async (Email, ChatId, Question) => {
     returnMessages: true,
     memoryKey: "chat_history"
   });
+  console.log("passed");
  const loadedHistory =  await chatModel.findOne({"_id" : ChatId });
 
   loadedHistory.chatHistory.forEach((obj)=>{
@@ -72,7 +74,7 @@ const langchainRetrival = async (Email, ChatId, Question) => {
       memory.chatHistory.addMessage(new AIMessage(obj.message));
     }
   })
-
+  console.log("passed2");
   //Vector Search
   // Initilize Pincone instense
   const pinecone = new Pinecone({
@@ -115,6 +117,76 @@ if(Question.split(".csv:").length > 1 || Question.split("analyze-").length > 1 )
 }else{
 
 
+// routing between Runnables
+  const chatRecognizerTemplate =
+  PromptTemplate.fromTemplate(`Given the user question below, classify it as either being about \`query\`, or \`notQuery\` if user asked about query classify it as query if not return notQuery.
+Also your classification can use following technique if you analyze query can be made from this question return query if no query can be made out of question return notQuery                                      
+Do not respond with more than one word.
+
+<question>
+{question}
+</question>
+
+Classification:`);
+
+const chatRecognizerModal = new ChatAnthropic({
+  modelName: "claude-3-sonnet-20240229",
+});
+
+const classificationChain = RunnableSequence.from([
+  chatRecognizerTemplate,
+  chatRecognizerModal,
+  new StringOutputParser(),
+]);
+
+
+const classificationChainResult = await classificationChain.invoke({
+  question:Question ,
+});
+
+
+// checking classification results
+
+console.log(classificationChainResult);
+
+if(classificationChainResult == "query"){
+  const prompt1 = PromptTemplate.fromTemplate(
+    "Human Like Language query : {query}. convert this sentence into json defining parameters extracted from Human like language query "
+  );
+  const prompt2 = PromptTemplate.fromTemplate(
+    `From This {jsonQuery} Convert the following json into SQL for BigQuery for GA4 table !important: Only provide query`
+  );
+  const prompt3 = PromptTemplate.fromTemplate(
+    `From This {SQLQuery},
+     only provide query and small explanation no styling 
+     ` 
+  );
+  const model = new ChatAnthropic({});
+    const chain = prompt1.pipe(model).pipe(new StringOutputParser());
+    const combinedChain = RunnableSequence.from([
+        {
+          jsonQuery: chain,
+        },
+        prompt2,
+        model,
+        new StringOutputParser(),
+      ]);
+
+      const combinedChain2 = RunnableSequence.from([
+        {
+            SQLQuery: combinedChain,
+        },
+        prompt3,
+        model,
+        new StringOutputParser(),
+      ]);
+    
+      const result = await combinedChain2.invoke({
+        query : Question
+      });
+      return result;
+}else if (classificationChainResult == "notQuery"){
+  // Extrating data from Vector Data bases 
   const vectorStore = await PineconeStore.fromExistingIndex(
     new OpenAIEmbeddings(),
     { pineconeIndex }
@@ -136,7 +208,7 @@ if(Question.split(".csv:").length > 1 || Question.split("analyze-").length > 1 )
     context =
       context + `\n Context Number# ${index + 1}: ` + element.pageContent;
   });
-}
+
   // Creating System/human prompt for gpt
   // Create a system & human prompt for the chat model
   const SYSTEM_TEMPLATE = ` 
@@ -182,6 +254,14 @@ console.log(SYSTEM_TEMPLATE);
   );
 
   return answer;
+  }
+
+}
+
+
+
+
+
 };
 
 module.exports = langchainRetrival;

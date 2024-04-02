@@ -7,6 +7,7 @@ const signUpRoute = require("./Routes/Auth/signUp");
 const file = require("./Routes/FileHandler/fileHandle");
 const EmbeddingStorage = require("./Routes/FileHandler/Embedding");
 const langchainRetrival = require("./Routes/Chat/LangchainRetrival");
+const testing = require("./Routes/testing/FeatureTesting")
 const chat = require("./Routes/Chat/Chat")
 
 // Create Express app
@@ -40,7 +41,9 @@ db.on('error', (err) => {
 app.use("/login" , loginRoute);
 app.use("/signup" , signUpRoute);
 app.use("/file" , file);
-app.use("/chat" , chat)
+app.use("/chat" , chat);
+app.use("/apiv2" , testing);
+
 app.get('/', (req, res) => {
   res.send('Hello, Express and MongoDB!');
 });
