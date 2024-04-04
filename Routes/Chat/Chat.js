@@ -62,4 +62,21 @@ router.post("/prompt/:chatId" , bodyParser.json() , async(req , res , next)=>{
 
 // })
 
+
+router.delete("/:chatId" , async(req , res , next)=>{
+
+  const id = req.params.chatId;
+
+  try{
+    await chatModel.findOneAndDelete({_id : id}).then(()=>{
+      res.sendStatus(200)
+    })
+  }catch(e){
+    res.status(500).json({"message" : "Unexpected Server Error occurred"})
+  }
+
+
+
+})
+
 module.exports = router;
