@@ -129,8 +129,9 @@ Do not respond with more than one word.
 
 Classification:`);
 
-const chatRecognizerModal = new ChatAnthropic({
-  modelName: "claude-3-sonnet-20240229",
+const chatRecognizerModal = new ChatOpenAI({
+  modelName: "gpt-4-0125-preview",
+  temperature: 0
 });
 
 const classificationChain = RunnableSequence.from([

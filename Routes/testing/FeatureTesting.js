@@ -5,6 +5,7 @@ const { StringOutputParser } = require("@langchain/core/output_parsers");
 const { ChatAnthropic } = require("@langchain/anthropic");
 const { JsonOutputFunctionsParser } = require("langchain/output_parsers");
 const {JsonOutputToolsParser } = require("@langchain/core/output_parsers/openai_tools")
+const {ChatOpenAI} = require("@langchain/openai")
 
 
 const router = express.Router();
@@ -90,8 +91,9 @@ Do not respond with more than one word.
 
 Classification:`);
 
-const model = new ChatAnthropic({
-    modelName: "claude-3-sonnet-20240229",
+const model = new ChatOpenAI({
+    modelName: "gpt-4-0125-preview",
+    temperature: 0
   });
 
   const classificationChain = RunnableSequence.from([
@@ -101,7 +103,7 @@ const model = new ChatAnthropic({
   ]);
   
   const classificationChainResult = await classificationChain.invoke({
-    question: "what is 8086",
+    question: "what is tcp",
   });
   console.log(classificationChainResult);
 
