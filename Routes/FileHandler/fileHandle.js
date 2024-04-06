@@ -132,14 +132,13 @@ router.delete("/uploadedFiles/:fileName/:email" , (req , res)=>{
       })
     }else{
       console.log(savedPath)
-      fs.unlink(savedPath , (err)=>{
-        if(err){
-          console.log(err)
-          res.status(500).json({"msg" : "Error in Deleting file"});
-        }else{
-          res.status(200).json({"msg" : "File deleted Successfully"})
-        }
-      })
+      try {
+        fs.unlinkSync(savedPath);
+        res.status(200).json({ "msg": "File deleted Successfully" });
+      } catch (err) {
+        console.error("Error deleting file:", err);
+        res.status(500).json({ "msg": "Error in Deleting file" });
+      }
     }
     
 
