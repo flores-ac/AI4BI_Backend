@@ -10,6 +10,7 @@ const {MultiQueryRetriever } = require("langchain/retrievers/multi_query")
 const {ChatOpenAI} = require("@langchain/openai")
 const { CSVLoader } = require("langchain/document_loaders/fs/csv");
 const CSVMongooseModal = require("../../Schema/csvDataModal");
+const { DocxLoader } = require("langchain/document_loaders/fs/docx");
 const fs = require("fs");
 
 
@@ -32,9 +33,18 @@ const EmbeddingStorage = async (fileName , userEmail) => {
     })
       return;
     }else{
-    const loader = new PDFLoader(savePath , {
-        splitPages: false,
-      });
+      let loader;
+      if(fileName.split(".")[1] === "docx"){
+        console.log("DOCX CALLED")
+         loader = new DocxLoader(
+          savePath
+        );
+
+      }else if(fileName.split(".")[1] === "pdf"){
+         loader = new PDFLoader(savePath , {
+          splitPages: false,
+        });
+      }
 
     const _docs = await loader.load();
     docs = _docs
@@ -42,7 +52,7 @@ const EmbeddingStorage = async (fileName , userEmail) => {
 
     // transform
 
-    if(fileName.split(".")[1] === "pdf"){
+    if(fileName.split(".")[1] === "pdf" || fileName.split(".")[1] === "docx"){
     const splitter = new RecursiveCharacterTextSplitter({
         chunkSize: 1000,
         chunkOverlap: 1,

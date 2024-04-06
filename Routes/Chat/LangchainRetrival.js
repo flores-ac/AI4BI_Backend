@@ -6,28 +6,25 @@ const { OpenAIEmbeddings } = require("@langchain/openai");
 const {
   ChatPromptTemplate,
   HumanMessagePromptTemplate,
-  SystemMessagePromptTemplate,MessagesPlaceholder,
+  SystemMessagePromptTemplate,
+  MessagesPlaceholder,
 } = require("@langchain/core/prompts");
 const {
   RunnableWithMessageHistory,
   RunnablePassthrough,
   RunnableSequence,
 } = require("@langchain/core/runnables");
-const { StringOutputParser } =  require("@langchain/core/output_parsers");
+const { StringOutputParser } = require("@langchain/core/output_parsers");
 const chatModel = require("../../Schema/chatModel");
 const { HumanMessage, AIMessage } = require("@langchain/core/messages");
 const { BufferMemory } = require("langchain/memory");
 const CSVMongooseModal = require("../../Schema/csvDataModal");
 const { ChatAnthropic } = require("@langchain/anthropic");
-const  { PromptTemplate } = require("@langchain/core/prompts");
-
-
+const { PromptTemplate } = require("@langchain/core/prompts");
 
 require("dotenv").config();
 
-
-
-// function 
+// function
 function createCSVArray(data) {
   // Check if the data array is not empty
   if (data.length === 0) {
@@ -36,16 +33,17 @@ function createCSVArray(data) {
   }
 
   // Extract the keys (column names) from the pageContent of the first element
-  const columns = data[0].pageContent.split('\n')
-    .filter(line => line.includes(":"))
-    .map(line => line.split(":")[0].trim());
+  const columns = data[0].pageContent
+    .split("\n")
+    .filter((line) => line.includes(":"))
+    .map((line) => line.split(":")[0].trim());
 
   // Create the CSV array with the columns as the first element
   const csvArray = [columns];
 
   // Populate the remaining elements of the CSV array with data
-  data.forEach(item => {
-    const rowData = columns.map(column => {
+  data.forEach((item) => {
+    const rowData = columns.map((column) => {
       // Extract the value for each column from the pageContent
       const regex = new RegExp(`${column}:\\s*(.+)`);
       const match = item.pageContent.match(regex);
@@ -60,20 +58,20 @@ function createCSVArray(data) {
 }
 
 const langchainRetrival = async (Email, ChatId, Question) => {
-  const memory  = new BufferMemory({
+  const memory = new BufferMemory({
     returnMessages: true,
-    memoryKey: "chat_history"
+    memoryKey: "chat_history",
   });
   console.log("passed");
- const loadedHistory =  await chatModel.findOne({"_id" : ChatId });
+  const loadedHistory = await chatModel.findOne({ _id: ChatId });
 
-  loadedHistory.chatHistory.forEach((obj)=>{
-    if(obj.responseFrom === "User"){
+  loadedHistory.chatHistory.forEach((obj) => {
+    if (obj.responseFrom === "User") {
       memory.chatHistory.addMessage(new HumanMessage(obj.message));
-    }else{
+    } else {
       memory.chatHistory.addMessage(new AIMessage(obj.message));
     }
-  })
+  });
   console.log("passed2");
   //Vector Search
   // Initilize Pincone instense
@@ -87,19 +85,22 @@ const langchainRetrival = async (Email, ChatId, Question) => {
   let context = "";
   const model = new ChatOpenAI({
     temperature: 0.9,
-    modelName: "gpt-4-turbo-preview"
+    modelName: "gpt-4-turbo-preview",
   });
-if(Question.split(".csv:").length > 1 || Question.split("analyze-").length > 1 ){
+  if (
+    Question.split(".csv:").length > 1 ||
+    Question.split("analyze-").length > 1
+  ) {
+    const firstSplit = Question.split(":")[0];
+    const fileName = firstSplit.split("analyze-")[1];
 
-  const firstSplit = Question.split(":")[0];
-  const fileName = firstSplit.split("analyze-")[1];
-  
+    const loadedDocument = await CSVMongooseModal.findOne({
+      fileName: fileName,
+    });
 
-  const loadedDocument = await CSVMongooseModal.findOne({"fileName": fileName});
+    const cleanedData = createCSVArray(loadedDocument.dataInFile);
 
-  const cleanedData = createCSVArray(loadedDocument.dataInFile);
-
-  context = `
+    context = `
   \n
   this is loaded data from file named ${fileName}
    structure of this csv file data is like this:
@@ -111,60 +112,56 @@ if(Question.split(".csv:").length > 1 || Question.split("analyze-").length > 1 )
 
   Answer the question asked on bases of above analysis
 
-  `
-  console.log(cleanedData);
+  `;
+    console.log(cleanedData);
+  } else {
+    // routing between Runnables
+    const chatRecognizerTemplate = PromptTemplate.fromTemplate(`
+    Given the user question below, classify it as either being about \`query\`, or \`notQuery\` if user asked about query classify it as query if not return notQuery.
+    Do not respond query if specifically Mentioned in Question.
+  
+    Do not respond with more than one word.
 
-}else{
+    <question>
+    {question}
+    </question>
 
+    Classification:`);
 
-// routing between Runnables
-  const chatRecognizerTemplate =
-  PromptTemplate.fromTemplate(`Given the user question below, classify it as either being about \`query\`, or \`notQuery\` if user asked about query classify it as query if not return notQuery.
-Also your classification can use following technique if you analyze query can be made from this question return query if no query can be made out of question return notQuery                                      
-Do not respond with more than one word.
+    const chatRecognizerModal = new ChatOpenAI({
+      modelName: "gpt-4-0125-preview",
+      temperature: 0,
+    });
 
-<question>
-{question}
-</question>
+    const classificationChain = RunnableSequence.from([
+      chatRecognizerTemplate,
+      chatRecognizerModal,
+      new StringOutputParser(),
+    ]);
 
-Classification:`);
+    const classificationChainResult = await classificationChain.invoke({
+      question: Question,
+    });
 
-const chatRecognizerModal = new ChatOpenAI({
-  modelName: "gpt-4-0125-preview",
-  temperature: 0
-});
+    // checking classification results
 
-const classificationChain = RunnableSequence.from([
-  chatRecognizerTemplate,
-  chatRecognizerModal,
-  new StringOutputParser(),
-]);
+    console.log(classificationChainResult);
 
-
-const classificationChainResult = await classificationChain.invoke({
-  question:Question ,
-});
-
-
-// checking classification results
-
-console.log(classificationChainResult);
-
-if(classificationChainResult == "query"){
-  const prompt1 = PromptTemplate.fromTemplate(
-    "Human Like Language query : {query}. convert this sentence into json defining parameters extracted from Human like language query "
-  );
-  const prompt2 = PromptTemplate.fromTemplate(
-    `From This {jsonQuery} Convert the following json into SQL for BigQuery for GA4 table !important: Only provide query`
-  );
-  const prompt3 = PromptTemplate.fromTemplate(
-    `From This {SQLQuery},
+    if (classificationChainResult == "query") {
+      const prompt1 = PromptTemplate.fromTemplate(
+        "Human Like Language query : {query}. convert this sentence into json defining parameters extracted from Human like language query "
+      );
+      const prompt2 = PromptTemplate.fromTemplate(
+        `From This {jsonQuery} Convert the following json into SQL for BigQuery for GA4 table !important: Only provide query`
+      );
+      const prompt3 = PromptTemplate.fromTemplate(
+        `From This {SQLQuery},
      only provide query and small explanation no styling 
-     ` 
-  );
-  const model = new ChatAnthropic({});
-    const chain = prompt1.pipe(model).pipe(new StringOutputParser());
-    const combinedChain = RunnableSequence.from([
+     `
+      );
+      const model = new ChatAnthropic({});
+      const chain = prompt1.pipe(model).pipe(new StringOutputParser());
+      const combinedChain = RunnableSequence.from([
         {
           jsonQuery: chain,
         },
@@ -175,44 +172,42 @@ if(classificationChainResult == "query"){
 
       const combinedChain2 = RunnableSequence.from([
         {
-            SQLQuery: combinedChain,
+          SQLQuery: combinedChain,
         },
         prompt3,
         model,
         new StringOutputParser(),
       ]);
-    
+
       const result = await combinedChain2.invoke({
-        query : Question
+        query: Question,
       });
       return result;
-}else if (classificationChainResult == "notQuery"){
-  // Extrating data from Vector Data bases 
-  const vectorStore = await PineconeStore.fromExistingIndex(
-    new OpenAIEmbeddings(),
-    { pineconeIndex }
-  );
+    } else if (classificationChainResult == "notQuery") {
+      // Extrating data from Vector Data bases
+      const vectorStore = await PineconeStore.fromExistingIndex(
+        new OpenAIEmbeddings(),
+        { pineconeIndex }
+      );
 
+      const retriever = MultiQueryRetriever.fromLLM({
+        llm: model,
+        retriever: vectorStore.asRetriever(),
+        verbose: true,
+      });
+      const query = Question;
+      const retrievedDocs = await retriever.getRelevantDocuments(query);
 
-  const retriever = MultiQueryRetriever.fromLLM({
-    llm: model,
-    retriever: vectorStore.asRetriever(),
-    verbose: true,
-  });
-  const query = Question;
-  const retrievedDocs = await retriever.getRelevantDocuments(query);
+      // creating context using Retrieved contexts
 
-  // creating context using Retrieved contexts
-  
+      retrievedDocs.map((element, index) => {
+        context =
+          context + `\n Context Number# ${index + 1}: ` + element.pageContent;
+      });
 
-  retrievedDocs.map((element, index) => {
-    context =
-      context + `\n Context Number# ${index + 1}: ` + element.pageContent;
-  });
-
-  // Creating System/human prompt for gpt
-  // Create a system & human prompt for the chat model
-  const SYSTEM_TEMPLATE = ` 
+      // Creating System/human prompt for gpt
+      // Create a system & human prompt for the chat model
+      const SYSTEM_TEMPLATE = ` 
   
   chat-history
   {chat_history}
@@ -227,42 +222,34 @@ if(classificationChainResult == "query"){
 ----------------
 ${context}`;
 
-console.log(SYSTEM_TEMPLATE);
+      console.log(SYSTEM_TEMPLATE);
 
-  const messages = [
-    SystemMessagePromptTemplate.fromTemplate(SYSTEM_TEMPLATE),
-    new MessagesPlaceholder("chat_history"),
-    HumanMessagePromptTemplate.fromTemplate("{question}"),
-  ];
+      const messages = [
+        SystemMessagePromptTemplate.fromTemplate(SYSTEM_TEMPLATE),
+        new MessagesPlaceholder("chat_history"),
+        HumanMessagePromptTemplate.fromTemplate("{question}"),
+      ];
 
-  const prompt = ChatPromptTemplate.fromMessages(messages);
+      const prompt = ChatPromptTemplate.fromMessages(messages);
 
-  const chain = RunnableSequence.from([
-    {
-      question: new RunnablePassthrough(),
-      chat_history: async () => {
-        const { chat_history } = await memory.loadMemoryVariables({});
-        return chat_history;
-      },
-    },
-    prompt,
-    model,
-    new StringOutputParser(),
-  ]);
+      const chain = RunnableSequence.from([
+        {
+          question: new RunnablePassthrough(),
+          chat_history: async () => {
+            const { chat_history } = await memory.loadMemoryVariables({});
+            return chat_history;
+          },
+        },
+        prompt,
+        model,
+        new StringOutputParser(),
+      ]);
 
-  const answer = await chain.invoke(
-    Question,
-  );
+      const answer = await chain.invoke(Question);
 
-  return answer;
+      return answer;
+    }
   }
-
-}
-
-
-
-
-
 };
 
 module.exports = langchainRetrival;

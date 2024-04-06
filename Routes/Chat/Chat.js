@@ -39,7 +39,7 @@ router.post("/prompt/:chatId" , bodyParser.json() , async(req , res , next)=>{
 
 
 
-      console.log("flag 1")
+    console.log("flag 1")
     await chatModel.findOneAndUpdate({_id : chatId} , {$push: {chatHistory : {"message" : message , "responseFrom" : "User"} }})
     const result = await LangchainRetrival(1 , chatId , message);
     await chatModel.findOneAndUpdate({_id : chatId} , {$push: {chatHistory : {"message" : result , "responseFrom" : "OpenAI"} }}) 
