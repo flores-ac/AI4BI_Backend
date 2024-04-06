@@ -134,6 +134,7 @@ router.delete("/uploadedFiles/:fileName/:email" , (req , res)=>{
       console.log(savedPath)
       fs.unlink(savedPath , (err)=>{
         if(err){
+          console.log(err)
           res.status(500).json({"msg" : "Error in Deleting file"});
         }else{
           res.status(200).json({"msg" : "File deleted Successfully"})
