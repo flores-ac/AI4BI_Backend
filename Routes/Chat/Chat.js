@@ -55,7 +55,7 @@ router.post("/prompt/:chatId" , bodyParser.json() , async(req , res , next)=>{
       res.status(200).json({ message: result, responseFrom: "OpenAI" });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ message: "An error occurred at the server" });
+      res.status(500).json({ message: error });
     }
 
 })
