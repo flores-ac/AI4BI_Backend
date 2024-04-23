@@ -258,15 +258,19 @@ const langchainRetrival = async (Email, ChatId, Question) => {
     if (classificationChainResult == "query") {
       try {
         const queryTemplate = PromptTemplate.fromTemplate(`
-        We need to answer the following question: {query} 
+        We need to answer the following question: 
+        <question>
+        {question} 
+        </question>
 
         To start generating a custom SQL queries, we need the following details: 
         1. The exact name of the event we need to analyze (e.g., 'campaign_view').
         2. The start and end dates for the data we seek to analyze, formatted as YYYYMMDD (e.g., 20230101 to 20230131).
         3. Two key parameters related to the events that we are particularly interested in. These could be attributes like 'campaign_name' or 'user_experience'.
         
-        Generate a JSON with the required information in the following syntax:
+        Generate a JSON with the required information in the following syntax only
         
+        Example JSON:
         {
         "eventName": "view_campaign_interaction",
         "startDate": "20230101",
@@ -274,7 +278,9 @@ const langchainRetrival = async (Email, ChatId, Question) => {
         "paramOne": "campaign_name",
         "paramTwo": "experience_name"
         }
-        `);
+
+
+        Generated JSON:`);
         const queryModal = new ChatOpenAI({
           modelName: "gpt-4-0125-preview",
           temperature: 0,
@@ -288,7 +294,7 @@ const langchainRetrival = async (Email, ChatId, Question) => {
         
         
         const jsonOutput = await queryChain.invoke({
-          query: Question,
+          question: Question,
         });
         const { eventName, startDate, endDate, paramOne, paramTwo } = JSON.parse(jsonOutput);
         const result = generateQueriesWithExplanation(eventName, startDate, endDate, paramOne, paramTwo);
