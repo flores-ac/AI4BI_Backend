@@ -23,6 +23,109 @@ const { ChatAnthropic } = require("@langchain/anthropic");
 const { PromptTemplate } = require("@langchain/core/prompts");
 
 require("dotenv").config();
+function generateQueriesWithExplanation(eventName, startDate, endDate, paramOne, paramTwo) {
+  // Generate the query for view events
+  let viewQuery = `SELECT
+user_pseudo_id AS cid,
+event_timestamp AS view_timestamp,
+(SELECT value.string_value FROM UNNEST(event_params) WHERE key = '${paramOne}') AS parameter_one,
+(SELECT value.string_value FROM UNNEST(event_params) WHERE key = '${paramTwo}') AS parameter_two
+FROM
+\`flowers-203019.analytics_264952733.events_\`
+WHERE
+event_name = '${eventName}' AND
+_TABLE_SUFFIX BETWEEN '${startDate}' AND '${endDate}'`;
+
+  // Generate the query for purchase events
+  let purchaseQuery = `WITH purchase_events AS (
+SELECT DISTINCT
+  user_pseudo_id AS cid,
+  event_timestamp AS purchase_timestamp,
+  ecommerce.transaction_id,
+  (SELECT value.double_value FROM UNNEST(event_params) WHERE key = 'value') AS revenue
+FROM
+  \`flowers-203019.analytics_264952733.events_\`
+WHERE
+  event_name = '${eventName}' AND
+  _TABLE_SUFFIX BETWEEN '${startDate}' AND '${endDate}'
+),
+all_click_events AS (
+SELECT DISTINCT
+  user_pseudo_id AS cid,
+  event_timestamp AS view_timestamp,
+  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = '${paramOne}') AS parameter_one,
+  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = '${paramTwo}') AS parameter_two
+FROM
+  \`flowers-203019.analytics_264952733.events_\`
+WHERE
+  event_name = 'mcp_content_view' AND
+  _TABLE_SUFFIX BETWEEN '${startDate}' AND '${endDate}'
+),
+last_view_before_purchase AS (
+SELECT
+  pe.cid,
+  pe.purchase_timestamp,
+  pe.transaction_id,
+  pe.revenue,
+  LAST_VALUE(ace.parameter_one) OVER (
+    PARTITION BY pe.cid
+    ORDER BY ace.view_timestamp
+    RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS last_parameter_one,
+  LAST_VALUE(ace.parameter_two) OVER (
+    PARTITION BY pe.cid
+    ORDER BY ace.view_timestamp
+    RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS last_parameter_two
+FROM
+  purchase_events pe
+JOIN
+  all_click_events ace ON pe.cid = ace.cid AND ace.view_timestamp < pe.purchase_timestamp
+)
+SELECT
+cid,
+transaction_id,
+revenue,
+last_parameter_one,
+last_parameter_two
+FROM (
+SELECT
+  *,
+  ROW_NUMBER() OVER (PARTITION BY cid, transaction_id ORDER BY last_view_timestamp DESC) AS rn
+FROM
+  last_view_before_purchase
+)
+WHERE
+rn = 1;`;
+
+  // User instructions
+  let userInstructions = `
+You have generated two queries to analyze user interactions on your platform:
+
+1. **View Events Query**: This query retrieves user interactions specific to views, capturing details based on parameters like ${paramOne} and ${paramTwo}.
+2. **Purchase Events Query**: This advanced query captures purchase events and attributes them to user views immediately preceding the purchase. It also integrates revenue data for comprehensive analysis.
+
+**Steps to Proceed**:
+- Execute both queries in your data environment.
+- Upload the results to LookerStudio.
+- Use a full outer join on the result sets to blend data based on user identifiers.
+- Analyze this combined data set to compute metrics such as conversion rates, average order value, and more. This will offer insights into campaign effectiveness and user behavior.
+
+These insights are instrumental in refining your marketing strategies and enhancing user engagement. Ensure to periodically update your queries to include new events and adapt to changes in data schema.`;
+
+  return {
+      viewQuery: viewQuery,
+      purchaseQuery: purchaseQuery,
+      instructions: userInstructions
+  };
+}
+
+// Example usage:
+//const eventName = "mcp_content_view"; // Assuming same event name used for simpler illustration
+//const result = generateQueriesWithExplanation(eventName, '20231101', '20231114', 'experience_name', 'campaign_name');
+//console.log("View Query:\n", result.viewQuery);
+//console.log("Purchase Query:\n", result.purchaseQuery);
+//console.log("Instructions:\n", result.instructions);
 
 // function
 function createCSVArray(data) {
@@ -117,10 +220,9 @@ const langchainRetrival = async (Email, ChatId, Question) => {
   } else {
     // routing between Runnables
     const chatRecognizerTemplate = PromptTemplate.fromTemplate(`
-    Given the user question below, classify it as either being about \`query\`, or \`notQuery\` if user asked about query classify it as query if not return notQuery.
-    Do not respond query if specifically Mentioned in Question.
-  
-    Do not respond with more than one word.
+    Please classify the user question provided below as either a \`query\` or \`notQuery\` based on its content. Proper classification is crucial for directing the appropriate responses and actions.
+
+    To classify, consider whether the question pertains to data queries or other topics. Provide a single-word response reflecting the classification.
 
     <question>
     {question}
@@ -148,41 +250,37 @@ const langchainRetrival = async (Email, ChatId, Question) => {
     console.log(classificationChainResult);
 
     if (classificationChainResult == "query") {
-      const prompt1 = PromptTemplate.fromTemplate(
-        "Human Like Language query : {query}. convert this sentence into json defining parameters extracted from Human like language query "
-      );
-      const prompt2 = PromptTemplate.fromTemplate(
-        `From This {jsonQuery} Convert the following json into SQL for BigQuery for GA4 table !important: Only provide query`
-      );
-      const prompt3 = PromptTemplate.fromTemplate(
-        `From This {SQLQuery},
-     only provide query and small explanation no styling 
-     `
-      );
+      const prompt1 = PromptTemplate.fromTemplate(`
+      We need to answer the following question: {query} 
+
+      To start generating a custom SQL queries, we need the following details: 
+      1. The exact name of the event we need to analyze (e.g., 'campaign_view').
+      2. The start and end dates for the data we seek to analyze, formatted as YYYYMMDD (e.g., 20230101 to 20230131).
+      3. Two key parameters related to the events that we are particularly interested in. These could be attributes like 'campaign_name' or 'user_experience'.
+      
+      Generate a JSON with the required information in the following syntax:
+      
+      {
+      "eventName": "view_campaign_interaction",
+      "startDate": "20230101",
+      "endDate": "20230131",
+      "paramOne": "campaign_name",
+      "paramTwo": "experience_name"
+      }
+      `);
       const model = new ChatAnthropic({});
       const chain = prompt1.pipe(model).pipe(new StringOutputParser());
-      const combinedChain = RunnableSequence.from([
-        {
-          jsonQuery: chain,
-        },
-        prompt2,
-        model,
-        new StringOutputParser(),
-      ]);
-
-      const combinedChain2 = RunnableSequence.from([
-        {
-          SQLQuery: combinedChain,
-        },
-        prompt3,
-        model,
-        new StringOutputParser(),
-      ]);
-
-      const result = await combinedChain2.invoke({
+      try {
+      const jsonOutput = await chain.invoke({
         query: Question,
       });
-      return result;
+      const { eventName, startDate, endDate, paramOne, paramTwo } = JSON.parse(jsonOutput);
+      const result = generateQueriesWithExplanation(eventName, startDate, endDate, paramOne, paramTwo);
+      return result.userInstructions + "\n\n" + result.viewQuery + "\n\n" + result.purchaseQuery;
+      } catch (error) {
+      console.error("Error occurred while processing the prompt response:", error);
+      return error;
+      }
     } else if (classificationChainResult == "notQuery") {
       // Extrating data from Vector Data bases
       const vectorStore = await PineconeStore.fromExistingIndex(
