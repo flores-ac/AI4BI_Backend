@@ -257,7 +257,7 @@ const langchainRetrival = async (Email, ChatId, Question) => {
 
     if (classificationChainResult == "query") {
       try {
-        const prompt1 = PromptTemplate.fromTemplate(`
+        const queryTemplate = PromptTemplate.fromTemplate(`
         We need to answer the following question: {query} 
 
         To start generating a custom SQL queries, we need the following details: 
@@ -275,10 +275,19 @@ const langchainRetrival = async (Email, ChatId, Question) => {
         "paramTwo": "experience_name"
         }
         `);
-        const model = new ChatAnthropic({});
-        const chain = prompt1.pipe(model).pipe(new StringOutputParser());
+        const queryModal = new ChatOpenAI({
+          modelName: "gpt-4-0125-preview",
+          temperature: 0,
+        });
+    
+        const queryChain = RunnableSequence.from([
+          queryTemplate,
+          queryModal,
+          new StringOutputParser(),
+        ]);
         
-        const jsonOutput = await chain.invoke({
+        
+        const jsonOutput = await queryChain.invoke({
           query: Question,
         });
         const { eventName, startDate, endDate, paramOne, paramTwo } = JSON.parse(jsonOutput);
