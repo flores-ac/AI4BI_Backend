@@ -24,100 +24,105 @@ const { PromptTemplate } = require("@langchain/core/prompts");
 
 require("dotenv").config();
 function generateQueriesWithExplanation(eventName, startDate, endDate, paramOne, paramTwo) {
-  // Generate the query for view events
-  let viewQuery = `SELECT
-user_pseudo_id AS cid,
-event_timestamp AS view_timestamp,
-(SELECT value.string_value FROM UNNEST(event_params) WHERE key = '${paramOne}') AS parameter_one,
-(SELECT value.string_value FROM UNNEST(event_params) WHERE key = '${paramTwo}') AS parameter_two
-FROM
-\`flowers-203019.analytics_264952733.events_\`
-WHERE
-event_name = '${eventName}' AND
-_TABLE_SUFFIX BETWEEN '${startDate}' AND '${endDate}'`;
+  try {
+    // Generate the query for view events
+    let viewQuery = `SELECT
+    user_pseudo_id AS cid,
+    event_timestamp AS view_timestamp,
+    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = '${paramOne}') AS parameter_one,
+    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = '${paramTwo}') AS parameter_two
+    FROM
+    \`flowers-203019.analytics_264952733.events_\`
+    WHERE
+    event_name = '${eventName}' AND
+    _TABLE_SUFFIX BETWEEN '${startDate}' AND '${endDate}'`;
 
-  // Generate the query for purchase events
-  let purchaseQuery = `WITH purchase_events AS (
-SELECT DISTINCT
-  user_pseudo_id AS cid,
-  event_timestamp AS purchase_timestamp,
-  ecommerce.transaction_id,
-  (SELECT value.double_value FROM UNNEST(event_params) WHERE key = 'value') AS revenue
-FROM
-  \`flowers-203019.analytics_264952733.events_\`
-WHERE
-  event_name = '${eventName}' AND
-  _TABLE_SUFFIX BETWEEN '${startDate}' AND '${endDate}'
-),
-all_click_events AS (
-SELECT DISTINCT
-  user_pseudo_id AS cid,
-  event_timestamp AS view_timestamp,
-  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = '${paramOne}') AS parameter_one,
-  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = '${paramTwo}') AS parameter_two
-FROM
-  \`flowers-203019.analytics_264952733.events_\`
-WHERE
-  event_name = 'mcp_content_view' AND
-  _TABLE_SUFFIX BETWEEN '${startDate}' AND '${endDate}'
-),
-last_view_before_purchase AS (
-SELECT
-  pe.cid,
-  pe.purchase_timestamp,
-  pe.transaction_id,
-  pe.revenue,
-  LAST_VALUE(ace.parameter_one) OVER (
-    PARTITION BY pe.cid
-    ORDER BY ace.view_timestamp
-    RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS last_parameter_one,
-  LAST_VALUE(ace.parameter_two) OVER (
-    PARTITION BY pe.cid
-    ORDER BY ace.view_timestamp
-    RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS last_parameter_two
-FROM
-  purchase_events pe
-JOIN
-  all_click_events ace ON pe.cid = ace.cid AND ace.view_timestamp < pe.purchase_timestamp
-)
-SELECT
-cid,
-transaction_id,
-revenue,
-last_parameter_one,
-last_parameter_two
-FROM (
-SELECT
-  *,
-  ROW_NUMBER() OVER (PARTITION BY cid, transaction_id ORDER BY last_view_timestamp DESC) AS rn
-FROM
-  last_view_before_purchase
-)
-WHERE
-rn = 1;`;
+    // Generate the query for purchase events
+    let purchaseQuery = `WITH purchase_events AS (
+    SELECT DISTINCT
+      user_pseudo_id AS cid,
+      event_timestamp AS purchase_timestamp,
+      ecommerce.transaction_id,
+      (SELECT value.double_value FROM UNNEST(event_params) WHERE key = 'value') AS revenue
+    FROM
+      \`flowers-203019.analytics_264952733.events_\`
+    WHERE
+      event_name = '${eventName}' AND
+      _TABLE_SUFFIX BETWEEN '${startDate}' AND '${endDate}'
+    ),
+    all_click_events AS (
+    SELECT DISTINCT
+      user_pseudo_id AS cid,
+      event_timestamp AS view_timestamp,
+      (SELECT value.string_value FROM UNNEST(event_params) WHERE key = '${paramOne}') AS parameter_one,
+      (SELECT value.string_value FROM UNNEST(event_params) WHERE key = '${paramTwo}') AS parameter_two
+    FROM
+      \`flowers-203019.analytics_264952733.events_\`
+    WHERE
+      event_name = 'mcp_content_view' AND
+      _TABLE_SUFFIX BETWEEN '${startDate}' AND '${endDate}'
+    ),
+    last_view_before_purchase AS (
+    SELECT
+      pe.cid,
+      pe.purchase_timestamp,
+      pe.transaction_id,
+      pe.revenue,
+      LAST_VALUE(ace.parameter_one) OVER (
+        PARTITION BY pe.cid
+        ORDER BY ace.view_timestamp
+        RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+      ) AS last_parameter_one,
+      LAST_VALUE(ace.parameter_two) OVER (
+        PARTITION BY pe.cid
+        ORDER BY ace.view_timestamp
+        RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+      ) AS last_parameter_two
+    FROM
+      purchase_events pe
+    JOIN
+      all_click_events ace ON pe.cid = ace.cid AND ace.view_timestamp < pe.purchase_timestamp
+    )
+    SELECT
+    cid,
+    transaction_id,
+    revenue,
+    last_parameter_one,
+    last_parameter_two
+    FROM (
+    SELECT
+      *,
+      ROW_NUMBER() OVER (PARTITION BY cid, transaction_id ORDER BY last_view_timestamp DESC) AS rn
+    FROM
+      last_view_before_purchase
+    )
+    WHERE
+    rn = 1;`;
 
-  // User instructions
-  let userInstructions = `
-You have generated two queries to analyze user interactions on your platform:
+    // User instructions
+    let userInstructions = `
+    You have generated two queries to analyze user interactions on your platform:
 
-1. **View Events Query**: This query retrieves user interactions specific to views, capturing details based on parameters like ${paramOne} and ${paramTwo}.
-2. **Purchase Events Query**: This advanced query captures purchase events and attributes them to user views immediately preceding the purchase. It also integrates revenue data for comprehensive analysis.
+    1. **View Events Query**: This query retrieves user interactions specific to views, capturing details based on parameters like ${paramOne} and ${paramTwo}.
+    2. **Purchase Events Query**: This advanced query captures purchase events and attributes them to user views immediately preceding the purchase. It also integrates revenue data for comprehensive analysis.
 
-**Steps to Proceed**:
-- Execute both queries in your data environment.
-- Upload the results to LookerStudio.
-- Use a full outer join on the result sets to blend data based on user identifiers.
-- Analyze this combined data set to compute metrics such as conversion rates, average order value, and more. This will offer insights into campaign effectiveness and user behavior.
+    **Steps to Proceed**:
+    - Execute both queries in your data environment.
+    - Upload the results to LookerStudio.
+    - Use a full outer join on the result sets to blend data based on user identifiers.
+    - Analyze this combined data set to compute metrics such as conversion rates, average order value, and more. This will offer insights into campaign effectiveness and user behavior.
 
-These insights are instrumental in refining your marketing strategies and enhancing user engagement. Ensure to periodically update your queries to include new events and adapt to changes in data schema.`;
+    These insights are instrumental in refining your marketing strategies and enhancing user engagement. Ensure to periodically update your queries to include new events and adapt to changes in data schema.`;
 
-  return {
-      viewQuery: viewQuery,
-      purchaseQuery: purchaseQuery,
-      instructions: userInstructions
-  };
+    return {
+        viewQuery: viewQuery,
+        purchaseQuery: purchaseQuery,
+        instructions: userInstructions
+    };
+  } catch (error) {
+    console.error("An error occurred while generating queries:", error);
+    return null;
+  }
 }
 
 // Example usage:
