@@ -21,7 +21,14 @@ const { BufferMemory } = require("langchain/memory");
 const CSVMongooseModal = require("../../Schema/csvDataModal");
 const { ChatAnthropic } = require("@langchain/anthropic");
 const { PromptTemplate } = require("@langchain/core/prompts");
-
+// Check if the content field of each message is null and convert it to an empty string
+loadedHistory.chatHistory.forEach((obj) => {
+  if (obj.responseFrom === "User") {
+    memory.chatHistory.addMessage(new HumanMessage(obj.message, obj.content || ""));
+  } else {
+    memory.chatHistory.addMessage(new AIMessage(obj.message, obj.content || ""));
+  }
+});
 require("dotenv").config();
 function generateQueriesWithExplanation(eventName, startDate, endDate, paramOne, paramTwo) {
   // Generate the query for view events
@@ -168,11 +175,12 @@ const langchainRetrival = async (Email, ChatId, Question) => {
   console.log("passed");
   const loadedHistory = await chatModel.findOne({ _id: ChatId });
 
+  
   loadedHistory.chatHistory.forEach((obj) => {
     if (obj.responseFrom === "User") {
-      memory.chatHistory.addMessage(new HumanMessage(obj.message));
+      memory.chatHistory.addMessage(new HumanMessage(obj.message || ""));
     } else {
-      memory.chatHistory.addMessage(new AIMessage(obj.message));
+      memory.chatHistory.addMessage(new AIMessage(obj.message || ""));
     }
   });
   console.log("passed2");
@@ -343,7 +351,7 @@ ${context}`;
         new StringOutputParser(),
       ]);
 
-      const answer = await chain.invoke(Question);
+      const answer = await chain.invoke({ question: Question, chat_history: loadedHistory.chatHistory });
 
       return answer;
     }
