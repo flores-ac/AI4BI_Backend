@@ -301,7 +301,7 @@ const langchainRetrival = async (Email, ChatId, Question) => {
         return result.userInstructions + "\n\n" + result.viewQuery + "\n\n" + result.purchaseQuery;
       } catch (error) {
         console.error("Error occurred while processing the prompt response:", error);
-        return "Error occurred while processing the prompt response:", error;
+        return "Error occurred while processing the prompt response";
       }
     } else if (classificationChainResult == "notQuery") {
       // Extrating data from Vector Data bases
