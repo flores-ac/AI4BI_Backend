@@ -250,37 +250,38 @@ const langchainRetrival = async (Email, ChatId, Question) => {
 
     console.log(classificationChainResult);
 
-    if (classificationChainResult == "query") {return "teast";
-      const prompt1 = PromptTemplate.fromTemplate(`
-      We need to answer the following question: {query} 
-
-      To start generating a custom SQL queries, we need the following details: 
-      1. The exact name of the event we need to analyze (e.g., 'campaign_view').
-      2. The start and end dates for the data we seek to analyze, formatted as YYYYMMDD (e.g., 20230101 to 20230131).
-      3. Two key parameters related to the events that we are particularly interested in. These could be attributes like 'campaign_name' or 'user_experience'.
-      
-      Generate a JSON with the required information in the following syntax:
-      
-      {
-      "eventName": "view_campaign_interaction",
-      "startDate": "20230101",
-      "endDate": "20230131",
-      "paramOne": "campaign_name",
-      "paramTwo": "experience_name"
-      }
-      `);
-      const model = new ChatAnthropic({});
-      const chain = prompt1.pipe(model).pipe(new StringOutputParser());
+    if (classificationChainResult == "query") {
       try {
-      const jsonOutput = await chain.invoke({
-        query: Question,
-      });
-      const { eventName, startDate, endDate, paramOne, paramTwo } = JSON.parse(jsonOutput);
-      const result = generateQueriesWithExplanation(eventName, startDate, endDate, paramOne, paramTwo);
-      return result.userInstructions + "\n\n" + result.viewQuery + "\n\n" + result.purchaseQuery;
+        const prompt1 = PromptTemplate.fromTemplate(`
+        We need to answer the following question: {query} 
+
+        To start generating a custom SQL queries, we need the following details: 
+        1. The exact name of the event we need to analyze (e.g., 'campaign_view').
+        2. The start and end dates for the data we seek to analyze, formatted as YYYYMMDD (e.g., 20230101 to 20230131).
+        3. Two key parameters related to the events that we are particularly interested in. These could be attributes like 'campaign_name' or 'user_experience'.
+        
+        Generate a JSON with the required information in the following syntax:
+        
+        {
+        "eventName": "view_campaign_interaction",
+        "startDate": "20230101",
+        "endDate": "20230131",
+        "paramOne": "campaign_name",
+        "paramTwo": "experience_name"
+        }
+        `);
+        const model = new ChatAnthropic({});
+        const chain = prompt1.pipe(model).pipe(new StringOutputParser());
+        
+        const jsonOutput = await chain.invoke({
+          query: Question,
+        });
+        const { eventName, startDate, endDate, paramOne, paramTwo } = JSON.parse(jsonOutput);
+        const result = generateQueriesWithExplanation(eventName, startDate, endDate, paramOne, paramTwo);
+        return result.userInstructions + "\n\n" + result.viewQuery + "\n\n" + result.purchaseQuery;
       } catch (error) {
-      console.error("Error occurred while processing the prompt response:", error);
-      throw error;
+        console.error("Error occurred while processing the prompt response:", error);
+        throw error;
       }
     } else if (classificationChainResult == "notQuery") {
       // Extrating data from Vector Data bases
@@ -308,18 +309,18 @@ const langchainRetrival = async (Email, ChatId, Question) => {
       // Create a system & human prompt for the chat model
       const SYSTEM_TEMPLATE = ` 
   
-  chat-history
-  {chat_history}
-  -------End of Chat History------
-  
-  Use the following pieces of context to answer the question at the end if and only if question is related to context other wise refer to chat history.
-  If you don't know the answer, just say that you don't know, don't try to make up an answer. 
-  If asked question is not relevant to context provided refer back to chat-history provided at top.
-  Also if how much data is analyzed is asked go through  messages history as it has numerical value which tells how much is data and data was there and donot tell there was no data available as it might not be in history but previous system template had.
-  chat-history might have related text if nothing is related then just say that you do not know. 
-  
-----------------
-${context}`;
+      chat-history
+      {chat_history}
+      -------End of Chat History------
+      
+      Use the following pieces of context to answer the question at the end if and only if question is related to context other wise refer to chat history.
+      If you don't know the answer, just say that you don't know, don't try to make up an answer. 
+      If asked question is not relevant to context provided refer back to chat-history provided at top.
+      Also if how much data is analyzed is asked go through  messages history as it has numerical value which tells how much is data and data was there and donot tell there was no data available as it might not be in history but previous system template had.
+      chat-history might have related text if nothing is related then just say that you do not know. 
+      
+      ----------------
+      ${context}`;
 
       console.log(SYSTEM_TEMPLATE);
 
