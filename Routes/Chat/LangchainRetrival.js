@@ -257,7 +257,7 @@ const langchainRetrival = async (Email, ChatId, Question) => {
 
     console.log(classificationChainResult);
 
-    if (classificationChainResult == "query") {
+    if (classificationChainResult == "query") {return "teast";
       const prompt1 = PromptTemplate.fromTemplate(`
       We need to answer the following question: {query} 
 
