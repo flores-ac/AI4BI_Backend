@@ -31,6 +31,7 @@ router.get("/createChat/:email", async (req, res, next) => {
   }
 });
 
+
 router.post("/prompt/:chatId" , bodyParser.json() , async(req , res , next)=>{
     const chatId = req.params.chatId;
     const body = req.body;
@@ -39,20 +40,23 @@ router.post("/prompt/:chatId" , bodyParser.json() , async(req , res , next)=>{
 
 
 
-    console.log("flag 1")
-    await chatModel.findOneAndUpdate({_id : chatId} , {$push: {chatHistory : {"message" : message , "responseFrom" : "User"} }})
-    const result = await LangchainRetrival(1 , chatId , message);
-    await chatModel.findOneAndUpdate({_id : chatId} , {$push: {chatHistory : {"message" : result , "responseFrom" : "OpenAI"} }}) 
-    console.log("flag 3")
-    res.status(200).json({"message" : result , "responseFrom" : "OpenAI"});
-
-  
-
-
-
-
-    
-
+    try {
+      console.log("flag 1");
+      await chatModel.findOneAndUpdate(
+        { _id: chatId },
+        { $push: { chatHistory: { message: message, responseFrom: "User" } } }
+      );
+      const result = await LangchainRetrival(1, chatId, message);
+      await chatModel.findOneAndUpdate(
+        { _id: chatId },
+        { $push: { chatHistory: { message: result, responseFrom: "OpenAI" } } }
+      );
+      console.log("flag 3");
+      res.status(200).json({ message: result, responseFrom: "OpenAI" });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "An error occurred at the server" });
+    }
 
 })
 
