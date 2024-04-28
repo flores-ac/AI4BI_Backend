@@ -271,13 +271,13 @@ const langchainRetrival = async (Email, ChatId, Question) => {
         Generate a JSON with the required information in the following syntax only
         
         Example JSON:
-        {
+        
         "eventName": "view_campaign_interaction",
         "startDate": "20230101",
         "endDate": "20230131",
         "paramOne": "campaign_name",
         "paramTwo": "experience_name"
-        }
+      
 
 
         Generated JSON:`);
@@ -296,11 +296,14 @@ const langchainRetrival = async (Email, ChatId, Question) => {
         const jsonOutput = await queryChain.invoke({
           question: Question,
         });
-        const { eventName, startDate, endDate, paramOne, paramTwo } = JSON.parse(jsonOutput);
+        const trimmedString = jsonOutput.trim().replace(/^```json\s*|```$/g, '');
+        console.log(trimmedString);
+        const { eventName, startDate, endDate, paramOne, paramTwo } = JSON.parse(trimmedString);
+        
         const result = generateQueriesWithExplanation(eventName, startDate, endDate, paramOne, paramTwo);
         return result.userInstructions + "\n\n" + result.viewQuery + "\n\n" + result.purchaseQuery;
       } catch (error) {
-        
+        console.log(error)
         return "Error occurred while processing the prompt response";
       }
     } else if (classificationChainResult == "notQuery") {
