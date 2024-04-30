@@ -301,7 +301,7 @@ const langchainRetrival = async (Email, ChatId, Question) => {
         const { eventName, startDate, endDate, paramOne, paramTwo } = JSON.parse(trimmedString);
         
         const result = generateQueriesWithExplanation(eventName, startDate, endDate, paramOne, paramTwo);
-        return result.userInstructions + "\n\n" + result.viewQuery + "\n\n" + result.purchaseQuery;
+        return result.instructions + "\n\n" + result.viewQuery + "\n\n" + result.purchaseQuery;
       } catch (error) {
         console.log(error)
         return "Error occurred while processing the prompt response";
