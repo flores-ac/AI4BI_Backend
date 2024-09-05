@@ -224,20 +224,17 @@ const langchainRetrival = async (Email, ChatId, Question) => {
   `;
     console.log(cleanedData);
   } else {
-     // routing between Runnables
+    // routing between Runnables
     const chatRecognizerTemplate = PromptTemplate.fromTemplate(`
-    Please classify the user question provided below as either a \`query\` or \`notQuery\` based on its content. 
+    Please classify the user question provided below as either a \`query\` or \`notQuery\` based on its content. Proper classification is crucial for directing the appropriate responses and actions.
 
-    Clasify as \`query\` if the user irs requesting for data analysis that will require the creation of a GA4 query or is explicitly requesting the creation of a query for a specific demand.
-
-    Classify as \`notQuery\` if the question is not data analytics related or does not require the creation of a GA4 query.
+    To classify, consider whether the question pertains to data queries or other topics. Provide a single-word response reflecting the classification.
 
     <question>
     {question}
     </question>
 
     Classification:`);
-
 
     const chatRecognizerModal = new ChatOpenAI({
       modelName: "gpt-4-0125-preview",
@@ -254,143 +251,127 @@ const langchainRetrival = async (Email, ChatId, Question) => {
       question: Question,
     });
 
-    const classifyQuestion = async (Question) => {
+    // checking classification results
+
+    console.log(classificationChainResult);
+
+    if (classificationChainResult == "query") {
       try {
-        const classificationChainResult = await classificationChain.invoke({
-          question: Question,
+        const queryTemplate = PromptTemplate.fromTemplate(`
+        We need to answer the following question: 
+        <question>
+        {question} 
+        </question>
+
+        To start generating a custom SQL queries, we need the following details: 
+        1. The exact name of the event we need to analyze (e.g., 'campaign_view').
+        2. The start and end dates for the data we seek to analyze, formatted as YYYYMMDD (e.g., 20230101 to 20230131).
+        3. Two key parameters related to the events that we are particularly interested in. These could be attributes like 'campaign_name' or 'user_experience'.
+        
+        Generate a JSON with the required information in the following syntax only
+        
+        Example JSON:
+        
+        "eventName": "view_campaign_interaction",
+        "startDate": "20230101",
+        "endDate": "20230131",
+        "paramOne": "campaign_name",
+        "paramTwo": "experience_name"
+      
+
+
+        Generated JSON:`);
+        const queryModal = new ChatOpenAI({
+          modelName: "gpt-4-0125-preview",
+          temperature: 0,
         });
     
-        const classification = classificationChainResult.trim(); // Clean up the result
-    
-        // Handle the classification result
-        if (classification === 'query') {
-          try {
-            const queryTemplate = PromptTemplate.fromTemplate(`
-            We need to answer the following question: 
-            <question>
-            {question} 
-            </question>
-    
-            To start generating a custom SQL queries, we need the following details: 
-            1. The exact name of the event we need to analyze (e.g., 'campaign_view').
-            2. The start and end dates for the data we seek to analyze, formatted as YYYYMMDD (e.g., 20230101 to 20230131).
-            3. Two key parameters related to the events that we are particularly interested in. These could be attributes like 'campaign_name' or 'user_experience'.
-            
-            Generate a JSON with the required information in the following syntax only
-            
-            Example JSON:
-            
-            "eventName": "view_campaign_interaction",
-            "startDate": "20230101",
-            "endDate": "20230131",
-            "paramOne": "campaign_name",
-            "paramTwo": "experience_name"
-          
-    
-    
-            Generated JSON:`);
-            const queryModal = new ChatOpenAI({
-              modelName: "gpt-4-0125-preview",
-              temperature: 0,
-            });
+        const queryChain = RunnableSequence.from([
+          queryTemplate,
+          queryModal,
+          new StringOutputParser(),
+        ]);
         
-            const queryChain = RunnableSequence.from([
-              queryTemplate,
-              queryModal,
-              new StringOutputParser(),
-            ]);
-            
-            
-            const jsonOutput = await queryChain.invoke({
-              question: Question,
-            });
-            const trimmedString = jsonOutput.trim().replace(/^```json\s*|```$/g, '');
-            console.log(trimmedString);
-            const { eventName, startDate, endDate, paramOne, paramTwo } = JSON.parse(trimmedString);
-            
-            const result = generateQueriesWithExplanation(eventName, startDate, endDate, paramOne, paramTwo);
-            return result.instructions + "\n\n" + result.viewQuery + "\n\n" + result.purchaseQuery;
-          } catch (error) {
-            console.log(error)
-            return "Error occurred while processing the prompt response";
-          }
-        } else if (classification === 'notQuery') {
-          // Handle the notQuery case
-          console.log("The question is classified as 'notQuery'. No GA4 query creation needed.");
-          // Add your logic for handling non-query questions here
-          // Extrating data from Vector Data bases
-        const vectorStore = await PineconeStore.fromExistingIndex(
-          new OpenAIEmbeddings(),
-          { pineconeIndex }
-          );
-
-          const retriever = MultiQueryRetriever.fromLLM({
-            llm: model,
-            retriever: vectorStore.asRetriever(),
-            verbose: true,
-          });
-          const query = Question;
-          const retrievedDocs = await retriever.getRelevantDocuments(query);
-
-          // creating context using Retrieved contexts
-
-          retrievedDocs.map((element, index) => {
-            context =
-              context + `\n Context Number# ${index + 1}: ` + element.pageContent;
-          });
-
-          // Creating System/human prompt for gpt
-          // Create a system & human prompt for the chat model
-          const SYSTEM_TEMPLATE = ` 
-      
-          chat-history
-          {chat_history}
-          -------End of Chat History------
-          
-          Use the following pieces of context to answer the question at the end if and only if question is related to context other wise refer to chat history.
-          If you don't know the answer, just say that you don't know, don't try to make up an answer. 
-          If asked question is not relevant to context provided refer back to chat-history provided at top.
-          Also if how much data is analyzed is asked go through  messages history as it has numerical value which tells how much is data and data was there and donot tell there was no data available as it might not be in history but previous system template had.
-          chat-history might have related text if nothing is related then just say that you do not know. 
-          
-          ----------------
-          ${context}`;
-
-          console.log(SYSTEM_TEMPLATE);
-
-          const messages = [
-            SystemMessagePromptTemplate.fromTemplate(SYSTEM_TEMPLATE),
-            new MessagesPlaceholder("chat_history"),
-            HumanMessagePromptTemplate.fromTemplate("{question}"),
-          ];
-
-          const prompt = ChatPromptTemplate.fromMessages(messages);
-
-          const chain = RunnableSequence.from([
-            {
-              question: new RunnablePassthrough(),
-              chat_history: async () => {
-                const { chat_history } = await memory.loadMemoryVariables({});
-                return chat_history;
-              },
-            },
-            prompt,
-            model,
-            new StringOutputParser(),
-          ]);
-
-          const answer = await chain.invoke({ question: Question, chat_history: loadedHistory.chatHistory });
-
-          return answer;
-        } else {
-          // Handle unexpected classification results
-          console.error("Unexpected classification result:", classification);
-        }
+        
+        const jsonOutput = await queryChain.invoke({
+          question: Question,
+        });
+        const trimmedString = jsonOutput.trim().replace(/^```json\s*|```$/g, '');
+        console.log(trimmedString);
+        const { eventName, startDate, endDate, paramOne, paramTwo } = JSON.parse(trimmedString);
+        
+        const result = generateQueriesWithExplanation(eventName, startDate, endDate, paramOne, paramTwo);
+        return result.instructions + "\n\n" + result.viewQuery + "\n\n" + result.purchaseQuery;
       } catch (error) {
-        // Handle any errors that occur during the process
-        console.error("An error occurred while classifying the question:", error);
+        console.log(error)
+        return "Error occurred while processing the prompt response";
       }
-    };
+    } else if (classificationChainResult == "notQuery") {
+      // Extrating data from Vector Data bases
+      const vectorStore = await PineconeStore.fromExistingIndex(
+        new OpenAIEmbeddings(),
+        { pineconeIndex }
+      );
+
+      const retriever = MultiQueryRetriever.fromLLM({
+        llm: model,
+        retriever: vectorStore.asRetriever(),
+        verbose: true,
+      });
+      const query = Question;
+      const retrievedDocs = await retriever.getRelevantDocuments(query);
+
+      // creating context using Retrieved contexts
+
+      retrievedDocs.map((element, index) => {
+        context =
+          context + `\n Context Number# ${index + 1}: ` + element.pageContent;
+      });
+
+      // Creating System/human prompt for gpt
+      // Create a system & human prompt for the chat model
+      const SYSTEM_TEMPLATE = ` 
+  
+      chat-history
+      {chat_history}
+      -------End of Chat History------
+      
+      Use the following pieces of context to answer the question at the end if and only if question is related to context other wise refer to chat history.
+      If you don't know the answer, just say that you don't know, don't try to make up an answer. 
+      If asked question is not relevant to context provided refer back to chat-history provided at top.
+      Also if how much data is analyzed is asked go through  messages history as it has numerical value which tells how much is data and data was there and donot tell there was no data available as it might not be in history but previous system template had.
+      chat-history might have related text if nothing is related then just say that you do not know. 
+      
+      ----------------
+      ${context}`;
+
+      console.log(SYSTEM_TEMPLATE);
+
+      const messages = [
+        SystemMessagePromptTemplate.fromTemplate(SYSTEM_TEMPLATE),
+        new MessagesPlaceholder("chat_history"),
+        HumanMessagePromptTemplate.fromTemplate("{question}"),
+      ];
+
+      const prompt = ChatPromptTemplate.fromMessages(messages);
+
+      const chain = RunnableSequence.from([
+        {
+          question: new RunnablePassthrough(),
+          chat_history: async () => {
+            const { chat_history } = await memory.loadMemoryVariables({});
+            return chat_history;
+          },
+        },
+        prompt,
+        model,
+        new StringOutputParser(),
+      ]);
+
+      const answer = await chain.invoke({ question: Question, chat_history: loadedHistory.chatHistory });
+
+      return answer;
+    }
   }
 };
 
