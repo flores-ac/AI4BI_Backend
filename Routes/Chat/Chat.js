@@ -1,7 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const chatModel = require("../../Schema/chatModel");
-const LangchainRetrival = require("./LangchainRetrival");
+const LangchainRetrival = require("./LangchainRetrivalOld");
 
 const router = express.Router();
 
