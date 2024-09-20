@@ -50,27 +50,4 @@ db.on('connected', () => {
   console.log('Connected to MongoDB');
 });
 
-// Event listener for MongoDB connection error
-db.on('error', (err) => {
-  console.error('MongoDB connection error:', err);
-});
-
-//Routes
-app.use("/login" , loginRoute);
-app.use("/signup" , signUpRoute);
-app.use("/file" , file);
-app.use("/chat" , chat);
-app.use("/apiv2" , testing);
-app.use("/auth", authRoute);
-
-app.get('/', (req, res) => {
-  res.send('Hello, Express and MongoDB!');
-});
-
-
-
-// Set up a server to listen on a port
-const PORT = process.env.PORT || 3003;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// Event listener fo
