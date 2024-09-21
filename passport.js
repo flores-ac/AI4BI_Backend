@@ -34,6 +34,7 @@ passport.use(
                     googleId: profile.id,
                     email: profile.emails[0].value,
                     name: profile.displayName,
+                     profilePicture: profile.photos[0].value, // Store profile picture URL
                     company: randomCompany,
                     role: role
                   });

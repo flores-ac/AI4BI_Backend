@@ -1,6 +1,7 @@
 const express = require('express');
 const passport = require('passport');
 const jwt = require('jsonwebtoken');
+const User = require("../../Schema/userModel"); 
 
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000"; // Your frontend URL
 
@@ -15,6 +16,21 @@ const setTokenCookie = (res, token) => {
   });
 };
 
+// Helper function to verify JWT
+const verifyTokenFromCookie = (req, res) => {
+    const token = req.cookies.token;  // Get the JWT from the HTTP-only cookie
+    if (!token) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);  // Verify the JWT
+      return decoded;  // Return the decoded token (this contains user info like userId, etc.)
+    } catch (err) {
+      return res.status(403).json({ message: 'Invalid token' });
+    }
+  };
+  
 // Google Callback Route - Get user and JWT token from Passport and set HTTP-only cookie
 router.get(
   "/google/callback",
@@ -59,34 +75,58 @@ router.get("/login/failed", (req, res) => {
   });
 });
 
-// Logout Route - Clear the HTTP-only cookie
+// Logout Route - Clear the HTTP-only cookie and send response
 router.get("/logout", (req, res) => {
-  // Clear the token cookie
-  res.clearCookie('token', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'Strict'
+    try {
+      // Clear the token cookie
+      res.clearCookie("token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'Strict'
+      });
+  
+      // Send response after clearing the cookie
+      return res.status(200).json({
+        message: "Logged out successfully",
+      });
+    } catch (err) {
+      console.error(err);
+      // If there's an error, return a 500 response
+      return res.status(500).json({
+        message: "Some error occurred at the server",
+      });
+    }
   });
-  res.json({
-    message: "Logged out successfully",
-  });
-});
+  
 
-// User Info Route - Protected, should verify JWT instead of relying on req.user
-router.get('/user', (req, res) => {
-  // Get JWT from the HTTP-only cookie
-  const token = req.cookies.token;
-
-  if (!token) {
-    return res.status(401).json({ message: 'Not authenticated' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);  // Verify the token
-    res.status(200).json({ user: decoded });  // Send the decoded user info (from the JWT payload)
-  } catch (err) {
-    res.status(403).json({ message: 'Invalid token' });
-  }
+// User Info Route - Protected, should fetch user from database using decoded JWT userId
+router.get('/user', async (req, res) => {
+    const decoded = verifyTokenFromCookie(req, res);  // Verify and decode the token
+    if (!decoded || decoded.message) return;  // If not authenticated, stop further execution
+  
+    const userId = decoded.userId;  // Extract the userId from the decoded JWT
+    
+    try {
+      // Fetch the user from the database using the userId, exclude sensitive info like password
+      const user = await User.findById(userId).select('-password');
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });  // Return after sending response
+      }
+  
+      // Send user data, including fields like profile picture
+      return res.status(200).json({
+        userId: user._id,
+        email: user.email,
+        name: user.name,
+        profilePicture: user.profilePicture,  // Ensure this field exists in your schema
+        company: user.company,
+        role: user.role
+      });  // Return after sending response
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Some error occurred at the server' });  // Return after sending response
+    }
 });
 
 module.exports = router;

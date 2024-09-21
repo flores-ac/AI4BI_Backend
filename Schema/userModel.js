@@ -15,6 +15,9 @@ const userSchema = new mongoose.Schema({
   name: {
     type: String,
   },
+  profilePicture: {
+    type: String, // Store the URL of the profile picture
+  },
   company: {
     type: String,
     default: 'Company_Default',
