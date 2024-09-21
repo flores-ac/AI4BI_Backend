@@ -1,19 +1,19 @@
 const mongoose = require('mongoose');
 
-// Define the User schema
+// Define the Chat schema
 const chatSchema = new mongoose.Schema({
-    userEmail : {
-        type: String,
-        required: true
-    },
-    chatHistory : {
-        type: Array,
-        default: []
-    }
+  userEmail: {
+    type: String,
+    required: true
+  },
+  chatHistory: {
+    type: Array,
+    default: []
+  }
 });
 
-// Create the User model using the schema
-const User = mongoose.model('Chat', chatSchema);
+// Create the Chat model using the schema
+const Chat = mongoose.model('Chat', chatSchema);
 
-// Export the User model
-module.exports = User;
+// Export the Chat model
+module.exports = Chat;

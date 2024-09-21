@@ -61,9 +61,10 @@ db.on('error', (err) => {
   console.error('MongoDB connection error:', err);
 });
 
-// JWT Middleware for Protected Routes
+
+// JWT Middleware for Protected Routes (Read JWT from HTTP-only cookies)
 const authenticateJWT = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];  // Get JWT from Authorization header
+  const token = req.cookies.token;  // Extract the JWT from the HTTP-only cookie
 
   if (!token) {
     return res.status(401).json({ message: 'Access denied, no token provided' });
@@ -72,7 +73,7 @@ const authenticateJWT = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);  // Verify JWT
     req.user = decoded;  // Attach the decoded token to req.user
-    next();  // Move to the next middleware or route handler
+    next();  // Continue to the next middleware or route handler
   } catch (err) {
     return res.status(403).json({ message: 'Invalid token' });
   }

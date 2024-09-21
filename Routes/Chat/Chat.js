@@ -2,85 +2,127 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const chatModel = require("../../Schema/chatModel");
 const LangchainRetrival = require("./LangchainRetrivalOld");
-
+const jwt = require("jsonwebtoken");  // Import jwt to verify the token
 const router = express.Router();
+const User = require("../../Schema/userModel"); 
 
-router.get("/:email", async (req, res, next) => {
-  const email = req.params.email;
-  try {
-    const userChats = await chatModel.find({ userEmail: email });
-    res.status(200).json({ userChats });
-  } catch {
-    (err) => {
-      res.status(500).json({ message: "Some Error Occurred at Server" });
-    };
+// Helper function to verify JWT
+const verifyTokenFromCookie = (req, res) => {
+  const token = req.cookies.token;  // Get the JWT from the HTTP-only cookie
+  if (!token) {
+    return res.status(401).json({ message: 'Not authenticated' });
   }
-});
-
-router.get("/createChat/:email", async (req, res, next) => {
-    const email = req.params.email;
-    console.log("created");
+  
   try {
-   const data =  await chatModel.create({ userEmail: email });
-   console.log(data);
-    res.status(200).json(data);
-  } catch {
-    (err) => {
-      res.status(500).json({ message: "Some Error Occurred at Server" });
-    };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);  // Verify the JWT
+    return decoded;  // Return the decoded token (this contains user info like email, userId, etc.)
+  } catch (err) {
+    return res.status(403).json({ message: 'Invalid token' });
   }
-});
+};
 
+// Get chat history for the authenticated user
+router.get("/", async (req, res) => {
+  const decoded = verifyTokenFromCookie(req, res);  // Verify and decode the token
+  if (!decoded || decoded.message) return;  // If not authenticated, stop further execution
 
-router.post("/prompt/:chatId" , bodyParser.json() , async(req , res , next)=>{
-    const chatId = req.params.chatId;
-    const body = req.body;
-    let message = body.prompt;
+  const userId = decoded.userId;  // Extract the userId from the decoded JWT
 
-
-
-
-    try {
-      console.log("flag 1");
-      await chatModel.findOneAndUpdate(
-        { _id: chatId },
-        { $push: { chatHistory: { message: message, responseFrom: "User" } } }
-      );
-      const result = await LangchainRetrival(1, chatId, message);
-      await chatModel.findOneAndUpdate(
-        { _id: chatId },
-        { $push: { chatHistory: { message: result, responseFrom: "OpenAI" } } }
-      );
-      console.log("flag 3");
-      res.status(200).json({ message: result, responseFrom: "OpenAI" });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: error });
+  try {
+    // Fetch the user from the database using the userId
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      console.error('User not found with userId:', userId);
+      return res.status(404).json({ message: 'User not found' });
     }
 
-})
+    const email = user.email;  // Get the user's email from the database
 
-// router.post("/chat" , bodyParser.json() , (req , res , next)=>{
-//     const body = req.body;
-//     const question = req.body;
+    // Log for debugging
+    console.log(`Fetching chat history for user with email: ${email}`);
 
-// })
-
-
-router.delete("/:chatId" , async(req , res , next)=>{
-
-  const id = req.params.chatId;
-
-  try{
-    await chatModel.findOneAndDelete({_id : id}).then(()=>{
-      res.sendStatus(200)
-    })
-  }catch(e){
-    res.status(500).json({"message" : "Unexpected Server Error occurred"})
+    // Fetch chat history using the user's email
+    const userChats = await chatModel.find({ userEmail: email });
+    res.status(200).json({ userChats });
+  } catch (err) {
+    console.error('Error fetching chat history:', err);
+    res.status(500).json({ message: "Some error occurred at the server" });
   }
+});
 
 
+// Create a new chat for the authenticated user
+router.get("/createChat", async (req, res) => {
+  const decoded = verifyTokenFromCookie(req, res);  // Verify and decode the token
+  if (!decoded || decoded.message) return;  // If not authenticated, stop further execution
 
-})
+  const userId = decoded.userId;  // Extract the userId from the decoded JWT
+
+  try {
+    // Fetch the user from the database using the userId
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const email = user.email;  // Get the user's email from the database
+
+    // Create a new chat with the user's email
+    const newChat = await chatModel.create({ userEmail: email });
+    res.status(200).json(newChat);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Some error occurred at the server" });
+  }
+});
+
+// Add user prompt and response to chat history
+router.post("/prompt/:chatId", bodyParser.json(), async (req, res) => {
+  const decoded = verifyTokenFromCookie(req, res);  // Verify and decode the token
+  if (!decoded || decoded.message) return;  // If not authenticated, stop further execution
+
+  const chatId = req.params.chatId;
+  const { prompt } = req.body;
+
+  try {
+    // Save user message
+    await chatModel.findOneAndUpdate(
+      { _id: chatId },
+      { $push: { chatHistory: { message: prompt, responseFrom: "User" } } }
+    );
+
+    // Get AI response
+    const aiResponse = await LangchainRetrival(1, chatId, prompt);
+
+    // Save AI response
+    await chatModel.findOneAndUpdate(
+      { _id: chatId },
+      { $push: { chatHistory: { message: aiResponse, responseFrom: "OpenAI" } } }
+    );
+
+    res.status(200).json({ message: aiResponse, responseFrom: "OpenAI" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error });
+  }
+});
+
+// Delete a chat
+router.delete("/:chatId", async (req, res) => {
+  const decoded = verifyTokenFromCookie(req, res);  // Verify and decode the token
+  if (!decoded || decoded.message) return;  // If not authenticated, stop further execution
+
+  const chatId = req.params.chatId;
+
+  try {
+    await chatModel.findOneAndDelete({ _id: chatId });
+    res.sendStatus(200);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Unexpected server error occurred" });
+  }
+});
 
 module.exports = router;
