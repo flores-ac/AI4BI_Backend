@@ -1,14 +1,13 @@
 const express = require('express');
 const passport = require('passport');
-const mongoose = require('mongoose');
-const userModel = require('./models/user'); // Adjust the path as necessary
 
-const Router = express.Router();
+
+const router = express.Router();
 
 router.get(
     "/google/callback",
     passport.authenticate("google", {
-        successRedirect: "process.env.CLIENT_URL",
+        successRedirect: process.env.CLIENT_URL,
         failureRedirect: "/login/failed",
     })
 );
@@ -40,4 +39,4 @@ router.get("/logout", (req, res) => {
 
 
 
-module.exports = Router;
+module.exports = router;

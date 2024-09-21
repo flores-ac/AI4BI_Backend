@@ -25,4 +25,4 @@ passport.serializeUser((user, callback) => {
 
 passport.deserializeUser((user, callback) => {
     callback(null, user);
-});
+}); 
