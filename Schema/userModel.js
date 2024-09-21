@@ -2,15 +2,26 @@ const mongoose = require('mongoose');
 
 // Define the User schema
 const userSchema = new mongoose.Schema({
+  googleId: {
+    type: String,
+    unique: true,
+  },
   email: {
     type: String,
     required: true,
     unique: true,
     trim: true,
   },
-  password: {
+  name: {
     type: String,
-    required: true,
+  },
+  company: {
+    type: String,
+    default: 'Company_Default',
+  },
+  role: {
+    type: String,
+    default: 'employee',
   },
   dateCreated: {
     type: Date,
