@@ -5,8 +5,25 @@ const multer = require('multer');
 const path = require('path');
 const EmbeddingStorage = require("./Embedding.js");
 const csvDataModal = require("../../Schema/csvDataModal.js")
+const jwt = require('jsonwebtoken');
+const User = require("../../Schema/userModel"); 
 
 
+
+// Helper function to verify JWT
+const verifyTokenFromCookie = (req, res) => {
+  const token = req.cookies.token ? req.cookies.token : null;  // Get the JWT from the HTTP-only cookie
+  if (!token) {
+      throw new Error('Token not found');
+  }
+  
+  try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      return decoded;
+  } catch (err) {
+      return res.status(403).json({ message: 'Invalid token' + err});
+  }
+};
 const router = express.Router();
 
 const storage = multer.diskStorage({
@@ -28,42 +45,61 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-router.post("/uploadFiles/:email" , upload.single('file') , async(req , res)=>{
-    const uploadedFile = req.file;
-    const email = req.params.email;
-  if (!uploadedFile) {
-    return res.status(400).send('No file uploaded.');
+router.post("/uploadFiles/" , upload.single('file') , async(req , res)=>{
+  const decoded = verifyTokenFromCookie(req, res); 
+    if (!decoded || decoded.message) {
+      // Token verification failure, return with an appropriate error message
+      return;
+    }
+    else{
+      const userId = decoded.userId;  // Extract the userId from the decoded JWT
+          // Fetch the user from the database using the userId, exclude sensitive info like password
+        const user = await User.findById(userId).select('-password');
+        const email = user.email;
+        const uploadedFile = req.file;
+      if (!uploadedFile) {
+        return res.status(400).send('No file uploaded.');
+      }
+
+      // Read the content of the file
+      const fileContent = await fs.promises.readFile(uploadedFile.path);
+
+      // Specify the path where you want to save the file
+      const savePath = path.join(__dirname, '../../uploads' + `/${email}` , uploadedFile.filename);
+
+      // Save the file to the specified path
+      await fs.promises.writeFile(savePath, fileContent);
+      console.log(uploadedFile.filename.split("."))
+      if(uploadedFile.filename.split(".")[1] === "pdf" || uploadedFile.filename.split(".")[1] === "csv" || uploadedFile.filename.split(".")[1] === "docx"  ){
+        console.log("PDF , CSV , DOCX Detected")
+        EmbeddingStorage(uploadedFile.filename , email);
+      }else{
+        console.log("NO PDF , CSV , DOCX DETECTED");
+      }
+      // Create Embeddings and store from uploaded File
+      
+
+
+      // Respond with a success message
+      res.send('File uploaded and saved successfully.');
   }
-
-  // Read the content of the file
-  const fileContent = await fs.promises.readFile(uploadedFile.path);
-
-  // Specify the path where you want to save the file
-  const savePath = path.join(__dirname, '../../uploads' + `/${email}` , uploadedFile.filename);
-
-  // Save the file to the specified path
-  await fs.promises.writeFile(savePath, fileContent);
-  console.log(uploadedFile.filename.split("."))
-  if(uploadedFile.filename.split(".")[1] === "pdf" || uploadedFile.filename.split(".")[1] === "csv" || uploadedFile.filename.split(".")[1] === "docx"  ){
-    console.log("PDF , CSV , DOCX Detected")
-    EmbeddingStorage(uploadedFile.filename , email);
-  }else{
-    console.log("NO PDF , CSV , DOCX DETECTED");
-  }
-  // Create Embeddings and store from uploaded File
-  
-
-
-  // Respond with a success message
-  res.send('File uploaded and saved successfully.');
 })
 
 
-router.get("/uploadedFiles/:email", async (req, res) => {
-  const email = req.params.email;
+router.get("/uploadedFiles/", async (req, res) => {
+
+  try{
+    const decoded = verifyTokenFromCookie(req, res); 
+    if (!decoded || decoded.message) {
+      // Token verification failure, return with an appropriate error message
+      return;
+    }else{
+      const userId = decoded.userId;  // Extract the userId from the decoded JWT
+        // Fetch the user from the database using the userId, exclude sensitive info like password
+        const user = await User.findById(userId).select('-password');
+      const email = user.email;
+      
   const storageSegment = path.join(__dirname, '../../uploads', email);
-  
-  try {
       const csvFiles = await csvDataModal.find({}).select("fileName");
       const csvFileNames = csvFiles.map(element => element.fileName);
       
@@ -92,7 +128,7 @@ router.get("/uploadedFiles/:email", async (req, res) => {
                   "filesName": files
               });
           }
-      });
+      });}
   } catch (error) {
       console.error(error);
       res.status(500).json({

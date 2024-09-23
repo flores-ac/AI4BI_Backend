@@ -18,18 +18,19 @@ const setTokenCookie = (res, token) => {
 
 // Helper function to verify JWT
 const verifyTokenFromCookie = (req, res) => {
-    const token = req.cookies.token;  // Get the JWT from the HTTP-only cookie
-    if (!token) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
-    
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);  // Verify the JWT
-      return decoded;  // Return the decoded token (this contains user info like userId, etc.)
-    } catch (err) {
+  const token = req.cookies.token ? req.cookies.token : null;  // Get the JWT from the HTTP-only cookie
+  if (!token) {
+      throw new Error('Token not found');
+  }
+  
+  try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      return decoded;
+  } catch (err) {
       return res.status(403).json({ message: 'Invalid token' });
-    }
-  };
+  }
+};
+
   
 // Google Callback Route - Get user and JWT token from Passport and set HTTP-only cookie
 router.get(
@@ -101,32 +102,50 @@ router.get("/logout", (req, res) => {
 
 // User Info Route - Protected, should fetch user from database using decoded JWT userId
 router.get('/user', async (req, res) => {
-    const decoded = verifyTokenFromCookie(req, res);  // Verify and decode the token
-    if (!decoded || decoded.message) return;  // If not authenticated, stop further execution
-  
-    const userId = decoded.userId;  // Extract the userId from the decoded JWT
-    
-    try {
-      // Fetch the user from the database using the userId, exclude sensitive info like password
-      const user = await User.findById(userId).select('-password');
-      
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });  // Return after sending response
-      }
-  
-      // Send user data, including fields like profile picture
-      return res.status(200).json({
-        userId: user._id,
-        email: user.email,
-        name: user.name,
-        profilePicture: user.profilePicture,  // Ensure this field exists in your schema
-        company: user.company,
-        role: user.role
-      });  // Return after sending response
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ message: 'Some error occurred at the server' });  // Return after sending response
+    try{
+      const decoded = verifyTokenFromCookie(req, res); 
+      const userId = decoded.userId;  // Extract the userId from the decoded JWT
+      if (!decoded || decoded.message) {
+        // Token verification failure, return with an appropriate error message
+        return;
     }
+    
+    
+   
+
+   
+
+        // Fetch the user from the database using the userId, exclude sensitive info like password
+        const user = await User.findById(userId).select('-password');
+
+        if (!user) {
+            // If no user is found, return a response immediately and stop execution
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Send user data, including fields like profile picture
+        return res.status(200).json({
+            userId: user._id,
+            email: user.email,
+            name: user.name,
+            profilePicture: user.profilePicture,
+            company: user.company,
+            role: user.role
+        });
+
+    } catch (err) {
+        console.error(err);
+
+        // If the error was a custom error with a status code, return that
+        if (err.status) {
+            return res.status(err.status).json({ message: err.message });
+        }
+        else{// Handle unknown errors
+          return res.status(500).json({ message: 'Internal server error' });}
+        
+    }
+    
 });
+
 
 module.exports = router;
