@@ -3,7 +3,7 @@ const passport = require('passport');
 const jwt = require('jsonwebtoken');
 const User = require("../../Schema/userModel"); 
 
-const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000"; // Your frontend URL
+const CLIENT_URL = process.env.CLIENT_URL || "http://ai4bi.app"; // Your frontend URL
 
 const router = express.Router();
 
