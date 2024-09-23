@@ -35,12 +35,19 @@ app.use(cookieParser());
 app.use(passport.initialize());
 // Remove passport.session() since we're not using sessions anymore
 // app.use(passport.session());
-
+const allowedOrigins = ['http://localhost:3000', 'http://ai4bi.com'];
 // Enable CORS for all routes
 app.use(cors({
-  origin: 'http://localhost:3000',  // Make sure this is the correct client URL
+  origin: function (origin, callback) {
+    // Check if the origin is in the allowed list or if there's no origin (for non-browser requests)
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: 'GET,POST,PUT,DELETE',
-  credentials: true  // JWT does not need credentials true, but leave it if needed for some reason
+  credentials: true  // Set to true if your frontend needs to send cookies
 }));
 
 // MongoDB connection URI (replace with your MongoDB connection string)
