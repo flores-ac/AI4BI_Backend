@@ -122,16 +122,17 @@ router.get('/user', async (req, res) => {
             // If no user is found, return a response immediately and stop execution
             return res.status(404).json({ message: 'User not found' });
         }
-
-        // Send user data, including fields like profile picture
-        return res.status(200).json({
-            userId: user._id,
-            email: user.email,
-            name: user.name,
-            profilePicture: user.profilePicture,
-            company: user.company,
-            role: user.role
-        });
+        if(user.email==="manuel@floresac.info"){
+          // Send user data, including fields like profile picture
+          return res.status(200).json({
+              userId: user._id,
+              email: user.email,
+              name: user.name,
+              profilePicture: user.profilePicture,
+              company: user.company,
+              role: user.role
+          });
+        }
 
     } catch (err) {
         console.error(err);
