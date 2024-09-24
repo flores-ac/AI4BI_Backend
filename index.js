@@ -42,7 +42,7 @@ app.use(cookieParser());
 app.use(passport.initialize());
 // Remove passport.session() since we're not using sessions anymore
 // app.use(passport.session());
-const allowedOrigins = ['http://localhost:3000', 'http://ai4bi.com'];
+const allowedOrigins = ['http://localhost:3000', 'http://ai4bi.app', 'https://ai4bi.app', 'https://www.ai4bi.app'];
 // Enable CORS for all routes
 app.use(cors({
   origin: function (origin, callback) {
