@@ -14,11 +14,13 @@ const langchainRetrival = require("./Routes/Chat/LangchainRetrival");
 const testing = require("./Routes/testing/FeatureTesting");
 const chat = require("./Routes/Chat/Chat");
 const jwt = require('jsonwebtoken');  // Add this for JWT verification
+const queryRoutes = require('./Routes/Query/queryHandler'); //Query rout handler
+
 console.log('step 1');
 
 // Create Express app
 const app = express();
-// Middleware to force HTTPS
+//Middleware to force HTTPS
 app.use((req, res, next) => {
   if (req.headers['x-forwarded-proto'] !== 'https') {
     return res.redirect(`https://${req.headers.host}${req.url}`);
@@ -42,7 +44,7 @@ app.use(cookieParser());
 app.use(passport.initialize());
 // Remove passport.session() since we're not using sessions anymore
 // app.use(passport.session());
-const allowedOrigins = ['http://localhost:3000', 'http://ai4bi.app', 'https://ai4bi.app', 'https://www.ai4bi.app'];
+const allowedOrigins = ['http://localhost:3000', 'https://localhost:3000','http://ai4bi.app', 'https://ai4bi.app', 'https://www.ai4bi.app'];
 // Enable CORS for all routes
 app.use(cors({
   origin: function (origin, callback) {
@@ -99,6 +101,8 @@ app.use("/signup", signUpRoute);
 app.use("/file", authenticateJWT, file);  // Protect with JWT middleware
 app.use("/chat", authenticateJWT, chat);  // Protect with JWT middleware
 app.use("/apiv2", authenticateJWT, testing);  // Protect with JWT middleware
+app.use('/api/query',authenticateJWT, queryRoutes);// Protect with JWT middleware
+
 app.use("/auth", authRoute);
 
 app.get('/', (req, res) => {

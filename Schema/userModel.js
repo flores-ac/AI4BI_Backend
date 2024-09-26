@@ -26,6 +26,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'employee',
   },
+  googleAccessToken: {
+    type: String,  // Encrypted Google access token
+  },
+  googleRefreshToken: {
+    type: String,  // Encrypted Google refresh token
+  },
   dateCreated: {
     type: Date,
     default: Date.now,

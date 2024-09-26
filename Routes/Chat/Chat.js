@@ -34,7 +34,7 @@ router.get("/", async (req, res) => {
     
     if (!user) {
       console.error('User not found with userId:', userId);
-      return res.status(404).json({ message: 'User not found' });
+      throw new Error('User not found');
     }
 
     const email = user.email;  // Get the user's email from the database
@@ -64,7 +64,7 @@ router.get("/createChat", async (req, res) => {
     const user = await User.findById(userId);
     
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      throw new Error('User not found');;
     }
 
     const email = user.email;  // Get the user's email from the database

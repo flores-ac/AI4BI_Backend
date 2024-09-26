@@ -120,7 +120,7 @@ router.get('/user', async (req, res) => {
 
         if (!user) {
             // If no user is found, return a response immediately and stop execution
-            return res.status(404).json({ message: 'User not found' });
+            throw new Error('User not found');
         }
         if(user.email==="manuel@floresac.info"){
           // Send user data, including fields like profile picture
