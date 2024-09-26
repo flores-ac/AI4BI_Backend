@@ -44,21 +44,32 @@ app.use(cookieParser());
 app.use(passport.initialize());
 // Remove passport.session() since we're not using sessions anymore
 // app.use(passport.session());
-const allowedOrigins = ['http://localhost:3000', 'https://localhost:3000','http://ai4bi.app', 'https://ai4bi.app', 'https://www.ai4bi.app'];
-// Enable CORS for all routes
+// Allow specific origins
+const allowedOrigins = [
+  'http://localhost:3000', 
+  'https://localhost:3000', 
+  'http://ai4bi.app', 
+  'https://ai4bi.app', 
+  'https://www.ai4bi.app'
+];
+
+// Enable CORS for all routes with credentials and proper headers
 app.use(cors({
   origin: function (origin, callback) {
-    // Check if the origin is in the allowed list or if there's no origin (for non-browser requests)
     if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: 'GET,POST,PUT,DELETE',
-  credentials: true  // Set to true if your frontend needs to send cookies
+  credentials: true,  // Allow credentials like cookies, authorization headers, etc.
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],  // Allow specific HTTP methods
+  allowedHeaders: ['Content-Type', 'Authorization'],  // Specify which headers are allowed
+  optionsSuccessStatus: 200  // For legacy browser support
 }));
 
+// Handle preflight requests (OPTIONS)
+app.options('*', cors());
 // MongoDB connection URI (replace with your MongoDB connection string)
 const mongoURI = 'mongodb+srv://salehmalik121:salehmalik932160@cluster0.wcon2y3.mongodb.net/?retryWrites=true&w=majority';
 
