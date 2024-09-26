@@ -69,7 +69,7 @@ const allowedOrigins = [
 // }));
 
 // Handle preflight requests (OPTIONS)
-app.options('*', cors());
+//app.options('*', cors());
 // MongoDB connection URI (replace with your MongoDB connection string)
 const mongoURI = 'mongodb+srv://salehmalik121:salehmalik932160@cluster0.wcon2y3.mongodb.net/?retryWrites=true&w=majority';
 
