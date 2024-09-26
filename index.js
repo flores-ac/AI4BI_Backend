@@ -54,19 +54,19 @@ const allowedOrigins = [
 ];
 
 // Enable CORS for all routes with credentials and proper headers
-app.use(cors({
-  origin: function (origin, callback) {
-    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,  // Allow credentials like cookies, authorization headers, etc.
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],  // Allow specific HTTP methods
-  allowedHeaders: ['Content-Type', 'Authorization'],  // Specify which headers are allowed
-  optionsSuccessStatus: 200  // For legacy browser support
-}));
+// app.use(cors({
+//   origin: function (origin, callback) {
+//     if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+//       callback(null, true);
+//     } else {
+//       callback(new Error('Not allowed by CORS'));
+//     }
+//   },
+//   credentials: true,  // Allow credentials like cookies, authorization headers, etc.
+//   methods: ['GET', 'POST', 'PUT', 'DELETE'],  // Allow specific HTTP methods
+//   allowedHeaders: ['Content-Type', 'Authorization'],  // Specify which headers are allowed
+//   optionsSuccessStatus: 200  // For legacy browser support
+// }));
 
 // Handle preflight requests (OPTIONS)
 app.options('*', cors());
