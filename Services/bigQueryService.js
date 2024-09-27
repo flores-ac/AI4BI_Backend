@@ -17,7 +17,7 @@ async function fetchBigQueryData() {
     });
 
     // Example query to fetch BigQuery data (adjust as needed)
-    const query = 'SELECT * FROM `flores-ac.analytics_351906236.events_intraday_*` LIMIT 10';
+    const query = 'SELECT * FROM `flores-ac.analytics_351906236.events_intraday_*` LIMIT 1000';
 
     // Run the query
     const [rows] = await bigquery.query({ query });

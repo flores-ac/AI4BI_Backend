@@ -21,12 +21,12 @@ console.log('step 1');
 // Create Express app
 const app = express();
 //Middleware to force HTTPS
-app.use((req, res, next) => {
-  if (req.headers['x-forwarded-proto'] !== 'https') {
-    return res.redirect(`https://${req.headers.host}${req.url}`);
-  }
-  next();
-});
+// app.use((req, res, next) => {
+//   if (req.headers['x-forwarded-proto'] !== 'https') {
+//     return res.redirect(`https://${req.headers.host}${req.url}`);
+//   }
+//   next();
+// });
 
 // Middleware for parsing JSON
 app.use(express.json());
