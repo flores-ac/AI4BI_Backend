@@ -3,3 +3,11 @@ node_modules/
 
 # Ignore environment variables file
 .env
+
+venv/
+
+Python-backend/
+
+.zshrc
+
+.DS_Store

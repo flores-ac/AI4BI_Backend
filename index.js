@@ -3,6 +3,7 @@ const express = require('express');
 const passport = require('passport');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const passportSetup = require('./passport');  // Make sure this is setting up the strategy properly
 const authRoute = require('./Routes/Auth/login');
@@ -15,7 +16,8 @@ const testing = require("./Routes/testing/FeatureTesting");
 const chat = require("./Routes/Chat/Chat");
 const jwt = require('jsonwebtoken');  // Add this for JWT verification
 const queryRoutes = require('./Routes/Query/queryHandler'); //Query rout handler
-
+const analyticsRoutes = require('./Routes/Analytics/analytics'); //Query rout handler
+const deliveryRoutes = require('./Routes/Delivery/delivery');
 console.log('step 1');
 
 // Create Express app
@@ -33,6 +35,7 @@ app.use(express.json());
 
 // Middleware for parsing URL-encoded bodies
 app.use(cookieParser());
+app.use(bodyParser.json());
 
 // Remove cookie-session since we're using JWT now
 // app.use(cookieSession({
@@ -113,7 +116,8 @@ app.use("/file", authenticateJWT, file);  // Protect with JWT middleware
 app.use("/chat", authenticateJWT, chat);  // Protect with JWT middleware
 app.use("/apiv2", authenticateJWT, testing);  // Protect with JWT middleware
 app.use('/api/query',authenticateJWT, queryRoutes);// Protect with JWT middleware
-
+app.use('/api/analytics',authenticateJWT, analyticsRoutes);// Protect with JWT middleware
+app.use('/api/delivery', deliveryRoutes); // Register the new delivery routes
 app.use("/auth", authRoute);
 
 app.get('/', (req, res) => {

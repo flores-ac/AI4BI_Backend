@@ -12,6 +12,7 @@
     "@google-cloud/bigquery": "^7.9.1",
     "@langchain/anthropic": "^0.1.9",
     "@pinecone-database/pinecone": "^1.1.2",
+    "axios": "^1.7.7",
     "body-parser": "^1.20.2",
     "cookie-parser": "^1.4.6",
     "cookie-session": "^2.1.0",
